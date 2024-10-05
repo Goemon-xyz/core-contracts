@@ -1,0 +1,6 @@
+{
+    "[solidity]": {
+        "editor.defaultFormatter": "NomicFoundation.hardhat-solidity",
+    },
+    "window.zoomLevel": 1
+}
