@@ -16,6 +16,7 @@ contract IntentsEngine is
     PausableUpgradeable
 {
     IUserManager public userManager;
+    address public tradeExecutor;
 
     mapping(address => Intent[]) private userIntents;
     uint256 public maxIntentsPerUser;
@@ -28,6 +29,11 @@ contract IntentsEngine is
         require(_userManager != address(0), "Invalid UserManager address");
         userManager = IUserManager(_userManager);
         maxIntentsPerUser = 10; // Default value, can be changed later
+    }
+
+    function setTradeExecutor(address _tradeExecutor) external onlyOwner {
+        require(_tradeExecutor != address(0), "Invalid TradeExecutor address");
+        tradeExecutor = _tradeExecutor;
     }
 
     function submitIntent(
@@ -65,8 +71,8 @@ contract IntentsEngine is
 
     function markIntentAsExecuted(address user, uint256 intentIndex) external {
         require(
-            msg.sender == address(userManager),
-            "Only UserManager can mark intents as executed"
+            msg.sender == address(userManager) || msg.sender == tradeExecutor,
+            "Only UserManager or TradeExecutor can mark intents as executed"
         );
         require(intentIndex < userIntents[user].length, "Invalid intent index");
         require(

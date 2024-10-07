@@ -87,8 +87,13 @@ contract TradeExecutorTest is Test {
         tradeExecutor = TradeExecutor(address(tradeExecutorProxy));
 
         // Set up connections between contracts
+        vm.startPrank(userManager.owner());
         userManager.setIntentsEngine(address(intentsEngine));
         userManager.setTradeExecutor(address(tradeExecutor));
+        vm.stopPrank();
+
+        vm.prank(intentsEngine.owner());
+        intentsEngine.setTradeExecutor(address(tradeExecutor));
 
         user1PrivateKey = 0xA11CE;
         user2PrivateKey = 0xB0B;
