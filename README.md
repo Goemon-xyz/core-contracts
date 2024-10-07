@@ -69,6 +69,6 @@ For more information on using Foundry:
 
 ## Contact
 
-[Your Name/Team Name] - [@your_twitter](https://twitter.com/your_twitter) - email@example.com
+[Goemon] - [@goemon_xyz](https://x.com/goemon_xyz) 
 
-Project Link: [https://github.com/your-username/goemon](https://github.com/your-username/goemon)
+Project Link: [https://github.com/orgs/Goemon-xyz](https://github.com/orgs/Goemon-xyz)
