@@ -13,3 +13,5 @@ docs/
 # Dotenv file
 .env
 
+# Build directory
+build/
