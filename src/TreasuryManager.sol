@@ -22,7 +22,7 @@ contract TreasuryManager is
         treasury = _treasury;
     }
 
-    function setTreasury(address newTreasury) external onlyOwner {
+    function setTreasury(address newTreasury) external onlyOwner whenNotPaused {
         require(newTreasury != address(0), "Invalid treasury address");
         treasury = newTreasury;
         emit TreasuryUpdated(newTreasury);
