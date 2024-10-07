@@ -2,44 +2,53 @@
 pragma solidity ^0.8.26;
 
 interface IGoemonCore {
-    // Events
+    struct Intent {
+        uint256 amount;
+        string intentType;
+        uint256 timestamp;
+        bool isExecuted;
+    }
+
     event Deposit(address indexed user, uint256 amount);
     event Withdraw(address indexed user, uint256 amount);
-    event TradeIntentSubmitted(
+    event IntentSubmitted(
         address indexed user,
         uint256 amount,
-        string intentType,
-        bytes32 signature
+        string intentType
     );
-    event LockFunds(address indexed user, uint256 amount, uint256 maturityDate);
+    event IntentSettled(address indexed user, uint256 intentIndex, int256 pnl);
+    event TreasuryUpdated(address newTreasury);
 
-    // Functions
     function permitDeposit(
-        address token,
         uint160 amount,
         uint256 deadline,
         uint48 nonce,
         bytes calldata signature
     ) external;
 
-    // function deposit(uint256 amount) external;
-
     function withdraw(uint256 amount) external;
 
-    function submitTradeIntentWithSignature(
-        uint256 amount,
-        string calldata intentType,
-        bytes memory signature
+    function submitIntent(uint256 amount, string calldata intentType) external;
+
+    function settleIntent(
+        address user,
+        uint256 intentIndex,
+        int256 pnl
     ) external;
 
-    function lockFundsUntilMaturity(
-        uint256 amount,
-        uint256 maturityDate
+    function batchSettleIntents(
+        address[] calldata users,
+        uint256[] calldata intentIndices,
+        int256[] calldata pnls
     ) external;
 
-    function getUserBalance() external view returns (uint256);
+    function getUserBalance(
+        address user
+    ) external view returns (uint256 availableBalance, uint256 lockedBalance);
 
-    function getLockedFunds() external view returns (uint256);
+    function getUserIntents(
+        address user
+    ) external view returns (Intent[] memory);
 
-    function getUserYield() external view returns (uint256);
+    function setTreasury(address newTreasury) external;
 }
