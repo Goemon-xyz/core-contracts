@@ -1,17 +1,30 @@
-## Foundry
+# Goemon Project
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+Goemon is a [brief description of your project].
 
-Foundry consists of:
+## License
 
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+This project is licensed under the Business Source License 1.1. See the [LICENSE](./LICENSE) file for details.
 
-## Documentation
+## Getting Started
 
-https://book.getfoundry.sh/
+### Prerequisites
+
+- [Foundry](https://book.getfoundry.sh/getting-started/installation)
+- [Node.js](https://nodejs.org/) (for running scripts)
+
+### Installation
+
+1. Clone the repository:
+   ```shell
+   git clone https://github.com/your-username/goemon.git
+   cd goemon
+   ```
+
+2. Install dependencies:
+   ```shell
+   forge install
+   ```
 
 ## Usage
 
@@ -27,40 +40,35 @@ $ forge build
 $ forge test
 ```
 
-### Format
-
-```shell
-$ forge fmt
-```
-
-### Gas Snapshots
-
-```shell
-$ forge snapshot
-```
-
-### Anvil
-
-```shell
-$ anvil
-```
-
 ### Deploy
 
 ```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
+$ forge script script/DeployGoemon.s.sol:DeployGoemonScript --rpc-url <your_rpc_url> --private-key <your_private_key>
 ```
 
-### Cast
+## Development
 
-```shell
-$ cast <subcommand>
-```
+[Add any specific instructions for developers working on this project]
 
-### Help
+## Documentation
 
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
+For more detailed information about the project, please refer to our [documentation](link-to-your-docs).
+
+## Contributing
+
+Please read [CONTRIBUTING.md](link-to-contributing-guide) for details on our code of conduct and the process for submitting pull requests.
+
+## Foundry
+
+This project uses Foundry, a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.
+
+For more information on using Foundry:
+
+- [Foundry Book](https://book.getfoundry.sh/)
+- [Foundry GitHub](https://github.com/foundry-rs/foundry)
+
+## Contact
+
+[Your Name/Team Name] - [@your_twitter](https://twitter.com/your_twitter) - email@example.com
+
+Project Link: [https://github.com/your-username/goemon](https://github.com/your-username/goemon)
