@@ -1,6 +1,6 @@
 # Goemon Project
 
-Goemon is a [brief description of your project].
+Goemon is an Intent Centric Options Liquidity Layer with composible strategies. We are the missing agglayer specifically for options that builders can tap onto.
 
 ## License
 
