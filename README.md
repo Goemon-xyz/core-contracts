@@ -37,7 +37,7 @@ $ forge build
 ### Test
 
 ```shell
-$ forge test
+$ forge test -vvv --fork-url https://rpc.ankr.com/eth --decode-internal  
 ```
 
 ### Deploy
