@@ -7,15 +7,21 @@ interface IIntentsEngine {
         string intentType;
         uint256 timestamp;
         bool isExecuted;
+        bytes metadata;
     }
 
     event IntentSubmitted(
         address indexed user,
         uint256 amount,
-        string intentType
+        string intentType,
+        bytes metadata
     );
 
-    function submitIntent(uint256 amount, string calldata intentType) external;
+    function submitIntent(
+        uint256 amount,
+        string calldata intentType,
+        bytes calldata metadata
+    ) external;
 
     function getUserIntents(
         address user
