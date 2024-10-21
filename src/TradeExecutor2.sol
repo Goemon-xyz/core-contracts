@@ -4,7 +4,7 @@ pragma solidity ^0.8.26;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/ITradeExecutor2.sol";
 
-contract TradeExecutor is ITradeExecutor, Ownable {
+contract TradeExecutor2 is ITradeExecutor2, Ownable {
     uint256 public nextNonce;
     address public goemonCore;
 

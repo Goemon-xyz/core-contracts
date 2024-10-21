@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-interface ITradeExecutor {
+interface ITradeExecutor2 {
     struct Trade {
         address user;
         uint256 amount;

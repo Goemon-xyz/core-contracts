@@ -30,4 +30,8 @@ interface IIntentsEngine {
     function setMaxIntentsPerUser(uint256 newMax) external;
 
     function markIntentAsExecuted(address user, uint256 intentIndex) external;
+
+    function pause() external;
+
+    function unpause() external;
 }

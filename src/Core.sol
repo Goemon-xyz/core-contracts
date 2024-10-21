@@ -19,7 +19,7 @@ contract Core is ICore, Ownable {
 
     IERC20 public immutable token;
     IPermit2 public immutable permit2;
-    ITradeExecutor public tradeExecutor;
+    ITradeExecutor2 public tradeExecutor;
     address public treasury;
 
     mapping(address => Trade[]) private userTrades;
@@ -41,7 +41,7 @@ contract Core is ICore, Ownable {
         require(treasuryAddress != address(0), "Invalid treasury address");
         token = IERC20(tokenAddress);
         permit2 = IPermit2(permit2Address);
-        tradeExecutor = ITradeExecutor(tradeExecutorAddress);
+        tradeExecutor = ITradeExecutor2(tradeExecutorAddress);
         treasury = treasuryAddress;
     }
 
@@ -181,7 +181,7 @@ contract Core is ICore, Ownable {
      */
     function setTradeExecutor(address newTradeExecutor) external onlyOwner {
         require(newTradeExecutor != address(0), "Invalid address");
-        tradeExecutor = ITradeExecutor(newTradeExecutor);
+        tradeExecutor = ITradeExecutor2(newTradeExecutor);
         emit TradeExecutorUpdated(newTradeExecutor);
     }
 

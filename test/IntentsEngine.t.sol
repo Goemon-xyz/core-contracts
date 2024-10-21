@@ -118,7 +118,7 @@ contract IntentsEngineTest is Test {
         uint256 intentAmount = 500 * 10 ** 18;
 
         vm.prank(user1);
-        intentsEngine.submitIntent(intentAmount, "BUY");
+        intentsEngine.submitIntent(intentAmount, "BUY", bytes("test"));
 
         (uint256 availableBalance, uint256 lockedBalance) = userManager
             .getUserBalance(user1);
@@ -138,7 +138,7 @@ contract IntentsEngineTest is Test {
         uint256 intentAmount = 20_000 * 10 ** 18;
 
         vm.prank(user1);
-        intentsEngine.submitIntent(intentAmount, "BUY");
+        intentsEngine.submitIntent(intentAmount, "BUY", bytes("test"));
     }
 
     function testSetMaxIntentsPerUser() public {
@@ -149,20 +149,20 @@ contract IntentsEngineTest is Test {
 
         vm.startPrank(user1);
         for (uint256 i = 0; i < newMax; i++) {
-            intentsEngine.submitIntent(1 * 10 ** 18, "BUY");
+            intentsEngine.submitIntent(1 * 10 ** 18, "BUY", bytes("test"));
         }
 
         // This should revert
         vm.expectRevert("Max intents limit reached");
-        intentsEngine.submitIntent(1 * 10 ** 18, "BUY");
+        intentsEngine.submitIntent(1 * 10 ** 18, "BUY", bytes("test"));
 
         vm.stopPrank();
     }
 
     function testGetUserIntents() public {
         vm.startPrank(user1);
-        intentsEngine.submitIntent(100 * 10 ** 18, "BUY");
-        intentsEngine.submitIntent(200 * 10 ** 18, "SELL");
+        intentsEngine.submitIntent(100 * 10 ** 18, "BUY", bytes("test"));
+        intentsEngine.submitIntent(200 * 10 ** 18, "SELL", bytes("test"));
         vm.stopPrank();
 
         IIntentsEngine.Intent[] memory intents = intentsEngine.getUserIntents(
@@ -177,7 +177,7 @@ contract IntentsEngineTest is Test {
 
     function testMarkIntentAsExecuted() public {
         vm.prank(user1);
-        intentsEngine.submitIntent(100 * 10 ** 18, "BUY");
+        intentsEngine.submitIntent(100 * 10 ** 18, "BUY", bytes("test"));
 
         // Simulate TradeExecutor calling markIntentAsExecuted
         vm.prank(address(userManager));
@@ -191,7 +191,7 @@ contract IntentsEngineTest is Test {
 
     function testFailMarkIntentAsExecutedUnauthorized() public {
         vm.prank(user1);
-        intentsEngine.submitIntent(100 * 10 ** 18, "BUY");
+        intentsEngine.submitIntent(100 * 10 ** 18, "BUY", bytes("test"));
 
         // This should fail because the caller is not the UserManager
         vm.prank(user2);
@@ -206,12 +206,12 @@ contract IntentsEngineTest is Test {
             abi.encodeWithSelector(PausableUpgradeable.EnforcedPause.selector)
         );
         vm.prank(user1);
-        intentsEngine.submitIntent(100 * 10 ** 18, "BUY");
+        intentsEngine.submitIntent(100 * 10 ** 18, "BUY", bytes("test"));
 
         vm.prank(intentsEngine.owner());
         intentsEngine.unpause();
 
         vm.prank(user1);
-        intentsEngine.submitIntent(100 * 10 ** 18, "BUY");
+        intentsEngine.submitIntent(100 * 10 ** 18, "BUY", bytes("test"));
     }
 }

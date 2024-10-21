@@ -161,7 +161,7 @@ contract TradeExecutorTest is Test {
         string memory intentType
     ) internal {
         vm.prank(user);
-        intentsEngine.submitIntent(amount, intentType);
+        intentsEngine.submitIntent(amount, intentType, bytes("test"));
     }
 
     function testSettleIntent() public {

@@ -38,7 +38,8 @@ contract IntentsEngine is
 
     function submitIntent(
         uint256 amount,
-        string calldata intentType
+        string calldata intentType,
+        bytes calldata metadata
     ) external nonReentrant whenNotPaused {
         require(
             userIntents[msg.sender].length < maxIntentsPerUser,
@@ -52,11 +53,12 @@ contract IntentsEngine is
                 amount: amount,
                 intentType: intentType,
                 timestamp: block.timestamp,
-                isExecuted: false
+                isExecuted: false,
+                metadata: metadata
             })
         );
 
-        emit IntentSubmitted(msg.sender, amount, intentType);
+        emit IntentSubmitted(msg.sender, amount, intentType, metadata);
     }
 
     function getUserIntents(
