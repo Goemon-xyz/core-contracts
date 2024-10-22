@@ -151,7 +151,13 @@ contract TradeExecutorTest is Test {
 
         vm.startPrank(user);
         token.approve(address(permit2), type(uint256).max);
-        userManager.permitDeposit(uint160(amount), deadline, nonce, signature);
+        userManager.permitDeposit(
+            uint160(amount),
+            deadline,
+            nonce,
+            signature,
+            ""
+        );
         vm.stopPrank();
     }
 

@@ -48,7 +48,21 @@ $ forge script script/DeployGoemon.s.sol:DeployGoemonScript --rpc-url <your_rpc_
 
 ## Development
 
-[Add any specific instructions for developers working on this project]
+For testing, we use a fork of the mainnet with anvil. Below is an example of how to fork the mainnet and impersonate an account and fund your walletw with 1000USDC
+
+```shell
+
+anvil --fork-url https://rpc.ankr.com/eth # fork latest block
+
+cast rpc anvil_impersonateAccount 0x28C6c06298d514Db089934071355E5743bf21d60 --rpc-url http://127.0.0.1:8545
+cast rpc anvil_setBalance 0x28C6c06298d514Db089934071355E5743bf21d60 0x1000000000000000000 --rpc-url http://127.0.0.1:8545
+
+cast send --from 0x28C6c06298d514Db089934071355E5743bf21d60 --unlocked --rpc-url http://127.0.0.1:8545 0xA0b86991c6218b36c1d19d4a2e9eb0ce3606eb48 "transfer(address,uint256)" 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 1000000000
+
+cast rpc anvil_stopImpersonatingAccount 0x28C6c06298d514Db089934071355E5743bf21d60 --rpc-url http://127.0.0.1:8545
+
+cast call 0xA0b86991c6218b36c1d19d4a2e9eb0ce3606eb48 "balanceOf(address)(uint256)" 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 --rpc-url http://127.0.0.1:8545
+```
 
 ## Documentation
 

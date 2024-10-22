@@ -8,6 +8,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "permit2/src/interfaces/IPermit2.sol";
+import "permit2/src/interfaces/ISignatureTransfer.sol";
 import "./interfaces/IUserManager.sol";
 import "./interfaces/IIntentsEngine.sol";
 import "./interfaces/ITradeExecutor.sol";
@@ -22,7 +23,7 @@ contract UserManager is
     using SafeERC20 for IERC20;
 
     IERC20 public token;
-    IPermit2 public permit2;
+    ISignatureTransfer public permit2;
     IIntentsEngine public intentsEngine;
     ITradeExecutor public tradeExecutor;
 
@@ -52,29 +53,78 @@ contract UserManager is
         tradeExecutor = ITradeExecutor(_tradeExecutor);
     }
 
+    event PermitDataReceived(uint256 amount, uint256 deadline, uint256 nonce);
+    event TokenValidated(address token, uint256 amount);
+    event PermitExecutionStarted();
+    event PermitExecutionCompleted();
+
     function permitDeposit(
-        uint160 amount,
+        uint256 amount,
         uint256 deadline,
-        uint48 nonce,
+        uint256 nonce,
+        bytes calldata permitTransferFrom,
         bytes calldata signature
     ) external nonReentrant whenNotPaused {
-        IAllowanceTransfer.PermitSingle memory permitSingle = IAllowanceTransfer
-            .PermitSingle({
-                details: IAllowanceTransfer.PermitDetails({
-                    token: address(token),
-                    amount: amount,
-                    expiration: uint48(deadline),
-                    nonce: nonce
+        emit PermitDataReceived(amount, deadline, nonce);
+        require(block.timestamp <= deadline, "Permit expired");
+
+        (address permittedToken, uint256 permitAmount) = abi.decode(
+            permitTransferFrom,
+            (address, uint256)
+        );
+
+        emit TokenValidated(permittedToken, permitAmount);
+        require(permittedToken == address(token), "Invalid token");
+        require(permitAmount == amount, "Amount mismatch");
+
+        emit PermitExecutionStarted();
+        try
+            permit2.permitTransferFrom(
+                ISignatureTransfer.PermitTransferFrom({
+                    permitted: ISignatureTransfer.TokenPermissions({
+                        token: permittedToken,
+                        amount: amount
+                    }),
+                    nonce: nonce,
+                    deadline: deadline
                 }),
-                spender: address(this),
-                sigDeadline: deadline
-            });
+                ISignatureTransfer.SignatureTransferDetails({
+                    to: address(this),
+                    requestedAmount: amount
+                }),
+                msg.sender,
+                signature
+            )
+        {
+            users[msg.sender].balance += amount;
+            emit PermitExecutionCompleted();
+            emit Deposit(msg.sender, amount);
+        } catch Error(string memory reason) {
+            revert(
+                string(abi.encodePacked("Permit2 transfer failed: ", reason))
+            );
+        } catch (bytes memory lowLevelData) {
+            revert(
+                string(
+                    abi.encodePacked(
+                        "Permit2 transfer failed: ",
+                        _toHex(lowLevelData)
+                    )
+                )
+            );
+        }
+    }
 
-        permit2.permit(msg.sender, permitSingle, signature);
-        permit2.transferFrom(msg.sender, address(this), amount, address(token));
-
-        users[msg.sender].balance += amount;
-        emit Deposit(msg.sender, amount);
+    function _toHex(bytes memory data) internal pure returns (string memory) {
+        bytes memory alphabet = "0123456789abcdef";
+        bytes memory str = new bytes(2 + data.length * 2);
+        str[0] = "0";
+        str[1] = "x";
+        for (uint i = 0; i < data.length; i++) {
+            str[2 + i * 2] = alphabet[uint(uint8(data[i] >> 4))];
+            str[3 + i * 2] = alphabet[uint(uint8(data[i] & 0x0f))];
+        }
+        return string(str);
     }
 
     function withdraw(uint256 amount) external nonReentrant whenNotPaused {

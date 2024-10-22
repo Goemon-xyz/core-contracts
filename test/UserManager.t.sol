@@ -102,44 +102,82 @@ contract UserManagerTest is Test {
         token.transfer(user2, 100_000 * 10 ** 18);
     }
 
+    function _getPermitTypedDataHash(
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        address spender
+    ) internal view returns (bytes32) {
+        bytes32 PERMIT_TRANSFER_FROM_TYPEHASH = keccak256(
+            "PermitTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline)TokenPermissions(address token,uint256 amount)"
+        );
+
+        bytes32 tokenPermissionsHash = keccak256(
+            abi.encode(
+                keccak256("TokenPermissions(address token,uint256 amount)"),
+                permit.permitted.token,
+                permit.permitted.amount
+            )
+        );
+
+        bytes32 structHash = keccak256(
+            abi.encode(
+                PERMIT_TRANSFER_FROM_TYPEHASH,
+                tokenPermissionsHash,
+                spender,
+                permit.nonce,
+                permit.deadline
+            )
+        );
+
+        bytes32 DOMAIN_SEPARATOR = permit2.DOMAIN_SEPARATOR();
+
+        return
+            keccak256(
+                abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, structHash)
+            );
+    }
+
     function testPermitDeposit() public {
         uint256 amount = 1000 * 10 ** 18;
         uint256 deadline = block.timestamp + 1 hours;
-        uint48 nonce = 0;
+        uint256 nonce = 0;
 
-        IAllowanceTransfer.PermitDetails memory details = IAllowanceTransfer
-            .PermitDetails({
-                token: address(token),
-                amount: uint160(amount),
-                expiration: uint48(deadline),
-                nonce: nonce
+        ISignatureTransfer.PermitTransferFrom memory permit = ISignatureTransfer
+            .PermitTransferFrom({
+                permitted: ISignatureTransfer.TokenPermissions({
+                    token: address(token),
+                    amount: amount
+                }),
+                nonce: nonce,
+                deadline: deadline
             });
 
-        IAllowanceTransfer.PermitSingle memory permitSingle = IAllowanceTransfer
-            .PermitSingle({
-                details: details,
-                spender: address(userManager),
-                sigDeadline: deadline
-            });
+        ISignatureTransfer.SignatureTransferDetails
+            memory transferDetails = ISignatureTransfer
+                .SignatureTransferDetails({
+                    to: address(userManager),
+                    requestedAmount: amount
+                });
 
-        bytes32 digest = keccak256(
-            abi.encodePacked(
-                "\x19\x01",
-                permit2.DOMAIN_SEPARATOR(),
-                PermitHash.hash(permitSingle)
-            )
-        );
+        bytes32 digest = _getPermitTypedDataHash(permit, address(userManager));
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(user1PrivateKey, digest);
         bytes memory signature = abi.encodePacked(r, s, v);
 
+        bytes memory permitTransferFrom = abi.encode(address(token), amount);
+
         vm.startPrank(user1);
         token.approve(address(permit2), type(uint256).max);
-        userManager.permitDeposit(uint160(amount), deadline, nonce, signature);
+        userManager.permitDeposit(
+            amount,
+            deadline,
+            nonce,
+            permitTransferFrom,
+            signature
+        );
         vm.stopPrank();
 
         (uint256 balance, ) = userManager.getUserBalance(user1);
-        assertEq(balance, amount);
+        assertEq(balance, amount, "Deposit amount should match user balance");
     }
 
     function testWithdraw() public {
@@ -165,14 +203,14 @@ contract UserManagerTest is Test {
         userManager.pause();
 
         vm.expectRevert();
-        userManager.permitDeposit(1, block.timestamp + 1 hours, 0, "");
+        userManager.permitDeposit(1, block.timestamp + 1 hours, 0, "", "");
 
         vm.prank(userManager.owner());
         userManager.unpause();
 
         // Now it should work (it might revert for other reasons, but not because it's paused)
         vm.expectRevert();
-        userManager.permitDeposit(1, block.timestamp + 1 hours, 0, "");
+        userManager.permitDeposit(1, block.timestamp + 1 hours, 0, "", "");
     }
 
     function testInitializer() public {

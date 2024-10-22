@@ -11,9 +11,10 @@ interface IUserManager {
     event Withdraw(address indexed user, uint256 amount);
 
     function permitDeposit(
-        uint160 amount,
+        uint256 amount,
         uint256 deadline,
-        uint48 nonce,
+        uint256 nonce,
+        bytes calldata permitTransferFrom,
         bytes calldata signature
     ) external;
 
