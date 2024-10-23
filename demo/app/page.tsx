@@ -3,6 +3,7 @@
 import React from 'react'
 import dynamic from 'next/dynamic'
 import { Web3Provider } from './Web3Provider'
+import UserBalance from './components/UserBalance';
 
 
 const DepositComponent = dynamic(
@@ -17,6 +18,8 @@ export default function Home() {
       <main>
         <h1>USDC Deposit Demo</h1>
         <DepositComponent />
+        <div style={{height: '100px'}}></div>
+        <UserBalance/>
       </main>
     </Web3Provider>
   )

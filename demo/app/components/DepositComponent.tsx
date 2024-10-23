@@ -8,7 +8,7 @@ import UserManagerABI from '../UserManagerABI.json';
 import Permit2ABI from '../Permit2ABI.json';
 
 // Constants
-const USER_MANAGER_ADDRESS = '0xABc84968376556B5e5B3C3bda750D091a06De536';
+const USER_MANAGER_ADDRESS = '0xC1dC7a8379885676a6Ea08E67b7Defd9a235De71';
 const PERMIT2_ADDRESS = '0x000000000022D473030F116dDEE9F6B43aC78BA3';
 const TOKEN_ADDRESS = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'; // USDC address
 const USDC_DECIMALS = 6;
@@ -58,7 +58,7 @@ export function DepositComponent() {
     }
   
     console.log('Current nonce:', nonce.toString());
-    return nonce;
+    return 7;
   }
 
   // Get USDC balance for an address
@@ -98,7 +98,7 @@ export function DepositComponent() {
       
       const amountWei = ethers.utils.parseUnits(amount, USDC_DECIMALS);
       const deadline = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now
-      const nonce = await getNonce();
+      const nonce = 4;
   
       const domain = {
         name: 'Permit2',
