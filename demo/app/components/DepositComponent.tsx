@@ -1,16 +1,14 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useWeb3React } from '@web3-react/core';
 import { ethers, BigNumber } from 'ethers';
-import { metaMask } from '../connector';
-import UserManagerABI from '../UserManagerABI.json';
-import Permit2ABI from '../Permit2ABI.json';
+import UserManagerABI from '../abi/UserManagerABI.json';
 
 // Constants
-const USER_MANAGER_ADDRESS = '0xC1dC7a8379885676a6Ea08E67b7Defd9a235De71';
+const USER_MANAGER_ADDRESS = '';
 const PERMIT2_ADDRESS = '0x000000000022D473030F116dDEE9F6B43aC78BA3';
-const TOKEN_ADDRESS = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'; // USDC address
+const TOKEN_ADDRESS = '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238'; // Sepolia USDC address
 const USDC_DECIMALS = 6;
 
 export function DepositComponent() {
@@ -20,49 +18,9 @@ export function DepositComponent() {
   const [status, setStatus] = useState<string>('');
   const [usdcBalance, setUsdcBalance] = useState<string>('0.0');
 
-  useEffect(() => {
-    if (isActive && account) {
-      updateUSDCBalance();
-    }
-  }, [isActive, account, provider]);
-
-  // Connect wallet function
-  async function connectWallet() {
-    try {
-      await metaMask.activate();
-    } catch (error) {
-      console.error('Failed to connect wallet:', error);
-      alert('Failed to connect wallet.');
-    }
-  }
-
-  // Get current nonce from Permit2 contract
-  async function getNonce() {
-    if (!provider || !account) return BigNumber.from(0);
-    const permit2Contract = new ethers.Contract(PERMIT2_ADDRESS, Permit2ABI, provider);
-    
-    let nonce;
-    try {
-      // Try to use the nonces function first
-      nonce = await permit2Contract.nonces(account);
-    } catch (error) {
-      console.log('Error fetching nonce from nonces function:', error);
-      // If nonces function fails, fall back to allowance
-      const [, , allowanceNonce] = await permit2Contract.allowance(account, TOKEN_ADDRESS, USER_MANAGER_ADDRESS);
-      nonce = allowanceNonce;
-    }
-  
-    // For Anvil testing, increment the nonce
-    if (process.env.NEXT_PUBLIC_NETWORK === 'anvil') {
-      nonce = nonce.add(1); // Increment by 1 instead of 3 for more predictable behavior
-    }
-  
-    console.log('Current nonce:', nonce.toString());
-    return 7;
-  }
 
   // Get USDC balance for an address
-  async function getUSDCBalance(address: string): Promise<BigNumber> {
+  const  getUSDCBalance = useCallback(async (address: string): Promise<BigNumber> => {
     if (!provider) return BigNumber.from(0);
     const usdcContract = new ethers.Contract(
       TOKEN_ADDRESS,
@@ -70,14 +28,22 @@ export function DepositComponent() {
       provider
     );
     return usdcContract.balanceOf(address);
-  }
+  }, [provider]);
+
 
   // Update USDC balance in the UI
-  async function updateUSDCBalance() {
+  const updateUSDCBalance = useCallback(async() => {
     if (!account) return;
     const balance = await getUSDCBalance(account);
     setUsdcBalance(ethers.utils.formatUnits(balance, USDC_DECIMALS));
-  }
+  }, [account, getUSDCBalance]);
+
+  useEffect(() => {
+    if (isActive && account) {
+      updateUSDCBalance();
+    }
+  }, [isActive, account, provider, updateUSDCBalance]);
+
 
   // Main deposit function
   async function handleDeposit() {
@@ -92,13 +58,16 @@ export function DepositComponent() {
     setLoading(true);
     setStatus('Starting deposit...');
     try {
+
+      console.log("provider is =====>", provider)
+
       const signer = provider.getSigner();
       const userManager = new ethers.Contract(USER_MANAGER_ADDRESS, UserManagerABI, signer);
-      const permit2Contract = new ethers.Contract(PERMIT2_ADDRESS, Permit2ABI, signer);
+      // const permit2Contract = new ethers.Contract(PERMIT2_ADDRESS, Permit2ABI, signer);
       
       const amountWei = ethers.utils.parseUnits(amount, USDC_DECIMALS);
       const deadline = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now
-      const nonce = 4;
+      const nonce = 9;
   
       const domain = {
         name: 'Permit2',
@@ -141,15 +110,6 @@ export function DepositComponent() {
         ['address', 'uint256'],
         [TOKEN_ADDRESS, amountWei]
       );
-  
-      const permitTx = await userManager.permitDeposit(
-        amountWei,
-        deadline,
-        nonce,
-        permitTransferFromData,
-        signature,
-        { gasLimit: 500000 }
-      );
 
       try {
         await userManager.callStatic.permitDeposit(
@@ -164,30 +124,42 @@ export function DepositComponent() {
         // Handle the error or return early
       }
       const usdcContract = new ethers.Contract(TOKEN_ADDRESS, ['function allowance(address,address) view returns (uint256)', 'function approve(address,uint256)'], signer);
-const allowance = await usdcContract.allowance(account, PERMIT2_ADDRESS);
-console.log('Current USDC allowance for Permit2:', allowance.toString());
-if (allowance.lt(amountWei)) {
-  console.log('Insufficient allowance, approving Permit2...');
-  const approveTx = await usdcContract.approve(PERMIT2_ADDRESS, ethers.constants.MaxUint256);
-  await approveTx.wait();
-  console.log('Permit2 approved for USDC');
-}
+      const allowance = await usdcContract.allowance(account, PERMIT2_ADDRESS);
+      console.log('Current USDC allowance for Permit2:', allowance.toString());
+
+      if (allowance.lt(amountWei)) {
+
+        console.log('Insufficient allowance, approving Permit2...');
+        const approveTx = await usdcContract.approve(PERMIT2_ADDRESS, ethers.constants.MaxUint256);
+        await approveTx.wait();
+        console.log('Permit2 approved for USDC');
+      }
 
       console.log('UserManager address:', USER_MANAGER_ADDRESS);
-console.log('Permit2 address:', PERMIT2_ADDRESS);
-console.log('Token address:', TOKEN_ADDRESS);
-console.log('Amount:', amountWei.toString());
-console.log('Deadline:', deadline);
-console.log('Nonce:', nonce.toString());
-console.log('PermitTransferFrom data:', permitTransferFromData);
-console.log('Signature:', signature);
+      console.log('Permit2 address:', PERMIT2_ADDRESS);
+      console.log('Token address:', TOKEN_ADDRESS);
+      console.log('Amount:', amountWei.toString());
+      console.log('Deadline:', deadline);
+      console.log('Nonce:', nonce.toString());
+      console.log('PermitTransferFrom data:', permitTransferFromData);
+      console.log('Signature:', signature);
   
+      const permitTx = await userManager.permitDeposit(
+        amountWei,
+        deadline,
+        nonce,
+        permitTransferFromData,
+        signature,
+        { gasLimit: 500000 }
+      );
       setStatus('Processing transaction...');
       await permitTx.wait();
   
       await updateUSDCBalance();
       setStatus('Deposit successful!');
       alert('Deposit successful!');
+
+
     } catch (error: any) {
       console.error('Deposit error:', error);
       handleDepositError(error);
@@ -195,6 +167,7 @@ console.log('Signature:', signature);
       setLoading(false);
     }
   }
+
 
   // Handle deposit errors
   function handleDepositError(error: any) {
@@ -204,10 +177,13 @@ console.log('Signature:', signature);
         const decodedError = userManager.interface.parseError(error.data);
         console.log('Decoded Error:', decodedError);
         setStatus(`Deposit failed: ${decodedError.name}`);
+
       } catch (parseError) {
+
         console.log('Failed to parse error:', parseError);
         setStatus('Deposit failed. Check console for details.');
       }
+
     } else {
       setStatus('Deposit failed. Check console for details.');
     }
@@ -215,53 +191,27 @@ console.log('Signature:', signature);
 
   // Render component
   return (
-    <div style={{ maxWidth: '400px', margin: '0 auto', padding: '20px' }}>
-      <h2>Deposit USDC</h2>
-      {isActive ? (
-        <>
-          <p><strong>Account:</strong> {account}</p>
-          <p><strong>USDC Balance:</strong> {usdcBalance}</p>
+    <div>
+      <h2 className="text-xl font-semibold">Deposit USDC</h2>
+      <hr className='mt-2 mb-4'/>
+          <p className='mb-2'><strong>USDC Balance :</strong> {usdcBalance}</p>
+          <label htmlFor="deposit">USDC Amount</label>
           <input
+            id="deposit"
             type="number"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            placeholder="USDC Amount"
-            style={{ width: '100%', padding: '8px', marginBottom: '10px' }}
+            placeholder="0"
+            className='border-2 rounded-lg w-full my-1 px-4 py-1.5'
           />
           <button
             onClick={handleDeposit}
             disabled={loading}
-            style={{
-              width: '100%',
-              padding: '10px',
-              backgroundColor: '#4CAF50',
-              color: 'white',
-              border: 'none',
-              cursor: 'pointer',
-            }}
+            className='w-full p-3 bg-[#4CAF50] hover:bg-green-600 text-white cursor-pointer my-4'
           >
             {loading ? 'Processing...' : 'Deposit'}
           </button>
-          <p>Status: {status}</p>
-        </>
-      ) : (
-        <>
-          <p>Connect your wallet.</p>
-          <button
-            onClick={connectWallet}
-            style={{
-              width: '100%',
-              padding: '10px',
-              backgroundColor: '#008CBA',
-              color: 'white',
-              border: 'none',
-              cursor: 'pointer',
-            }}
-          >
-            Connect Wallet
-          </button>
-        </>
-      )}
+          <p>Status : {status}</p>
     </div>
   );
 }

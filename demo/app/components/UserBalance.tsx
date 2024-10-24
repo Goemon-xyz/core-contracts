@@ -3,9 +3,9 @@
 import React, { useState } from 'react';
 import { useWeb3React } from '@web3-react/core';
 import { ethers } from 'ethers';
-import UserManagerABI from '../UserManagerABI.json';
+import UserManagerABI from '../abi/UserManagerABI.json';
 
-const USER_MANAGER_ADDRESS = '0x424D1CAce0EbEC1Cdb38BcE19002A39541E46Ca8';
+const USER_MANAGER_ADDRESS = '';
 
 const UserBalance = () => {
   const { account, isActive, provider } = useWeb3React();
@@ -46,21 +46,15 @@ const UserBalance = () => {
 
 
   return (
-    <div style={{ maxWidth: '400px', margin: '0 auto', padding: '20px' }}>
-      <h3>Check User's Balance in Smart Contract: UserManager.sol</h3>
+    <div>
+      <h2 className="text-xl font-semibold">User Balance in Smart Contract: UserManager.sol</h2>
+      <hr className='mt-2 mb-4'/>
       <p><strong>Your available balance:</strong> {availableBalance ?? 'N/A'}</p>
       <p><strong>Your locked balance:</strong> {lockedBalance ?? 'N/A'}</p>
       
       <button
         onClick={getUserBalance}
-        style={{
-          width: '100%',
-          padding: '10px',
-          backgroundColor: '#008CBA',
-          color: 'white',
-          border: 'none',
-          cursor: 'pointer',
-        }}
+        className='w-full p-3 bg-[#008CBA] hover:bg-blue-800 text-white cursor-pointer my-4'
       >
         {loading ? 'Processing...' : 'Get Balance'}
       </button>

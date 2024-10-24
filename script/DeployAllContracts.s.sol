@@ -9,9 +9,9 @@ import "../src/IntentsEngine.sol";
 
 contract DeployAllContracts is Script {
     // Declare addresses for tokens and dependencies
-    address tokenAddress = 0x5FbDB2315678afecb367f032d93F642f64180aa3; // Replace with actual token address
+    address tokenAddress = 0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238; // Replace with actual token address
     address permit2Address = 0x000000000022D473030F116dDEE9F6B43aC78BA3; // Replace with actual Permit2 address
-    address treasuryAddress = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266; // Replace with actual treasury address
+    address treasuryAddress = 0x5E1Bd63682ddec4dFe7b99396f30166Eb537d152; // Replace with actual treasury address
 
     function run() external {
         // Start broadcasting the transaction
@@ -45,6 +45,14 @@ contract DeployAllContracts is Script {
         // Set IntentsEngine dependencies
         intentsEngine.setTradeExecutor(address(tradeExecutor));
         console2.log("Set TradeExecutor in IntentsEngine");
+
+        // Set IntentsEngine in UserManager after deploying IntentsEngine
+        userManager.setIntentsEngine(address(intentsEngine));
+        console2.log("Set IntentsEngine in UserManager");
+
+        // Set TradeExecutor in UserManager after deploying TradeExecutor
+        userManager.setTradeExecutor(address(tradeExecutor));
+        console2.log("Set TradeExecutor in UserManager");
 
         // End broadcasting the transaction
         vm.stopBroadcast();

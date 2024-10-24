@@ -43,7 +43,7 @@ $ forge test -vvv --fork-url https://rpc.ankr.com/eth --decode-internal
 ### Deploy
 
 ```shell
-$ forge script script/DeployGoemon.s.sol:DeployGoemonScript --rpc-url <your_rpc_url> --private-key <your_private_key>
+$ forge script script/DeployAllContracts.s.sol:DeployAllContracts --rpc-url <your_rpc_url> --private-key <your_private_key> --broadcast
 ```
 
 
