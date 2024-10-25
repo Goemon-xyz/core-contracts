@@ -37,53 +37,30 @@ contract TradeExecutorTest is Test {
 
         // Deploy UserManager
         UserManager userManagerImpl = new UserManager();
-        bytes memory userManagerInitData = abi.encodeWithSelector(
-            UserManager.initialize.selector,
-            address(token),
-            address(permit2)
-        );
-        ERC1967Proxy userManagerProxy = new ERC1967Proxy(
-            address(userManagerImpl),
-            userManagerInitData
-        );
+        bytes memory userManagerInitData =
+            abi.encodeWithSelector(UserManager.initialize.selector, address(token), address(permit2));
+        ERC1967Proxy userManagerProxy = new ERC1967Proxy(address(userManagerImpl), userManagerInitData);
         userManager = UserManager(address(userManagerProxy));
 
         // Deploy IntentsEngine
         IntentsEngine intentsEngineImpl = new IntentsEngine();
-        bytes memory intentsEngineInitData = abi.encodeWithSelector(
-            IntentsEngine.initialize.selector,
-            address(userManager)
-        );
-        ERC1967Proxy intentsEngineProxy = new ERC1967Proxy(
-            address(intentsEngineImpl),
-            intentsEngineInitData
-        );
+        bytes memory intentsEngineInitData =
+            abi.encodeWithSelector(IntentsEngine.initialize.selector, address(userManager));
+        ERC1967Proxy intentsEngineProxy = new ERC1967Proxy(address(intentsEngineImpl), intentsEngineInitData);
         intentsEngine = IntentsEngine(address(intentsEngineProxy));
 
         // Deploy TreasuryManager
         TreasuryManager treasuryManagerImpl = new TreasuryManager();
-        bytes memory treasuryManagerInitData = abi.encodeWithSelector(
-            TreasuryManager.initialize.selector,
-            treasury
-        );
-        ERC1967Proxy treasuryManagerProxy = new ERC1967Proxy(
-            address(treasuryManagerImpl),
-            treasuryManagerInitData
-        );
+        bytes memory treasuryManagerInitData = abi.encodeWithSelector(TreasuryManager.initialize.selector, treasury);
+        ERC1967Proxy treasuryManagerProxy = new ERC1967Proxy(address(treasuryManagerImpl), treasuryManagerInitData);
         treasuryManager = TreasuryManager(address(treasuryManagerProxy));
 
         // Deploy TradeExecutor
         TradeExecutor tradeExecutorImpl = new TradeExecutor();
         bytes memory tradeExecutorInitData = abi.encodeWithSelector(
-            TradeExecutor.initialize.selector,
-            address(userManager),
-            address(intentsEngine),
-            address(treasuryManager)
+            TradeExecutor.initialize.selector, address(userManager), address(intentsEngine), address(treasuryManager)
         );
-        ERC1967Proxy tradeExecutorProxy = new ERC1967Proxy(
-            address(tradeExecutorImpl),
-            tradeExecutorInitData
-        );
+        ERC1967Proxy tradeExecutorProxy = new ERC1967Proxy(address(tradeExecutorImpl), tradeExecutorInitData);
         tradeExecutor = TradeExecutor(address(tradeExecutorProxy));
 
         // Set up connections between contracts
@@ -115,57 +92,33 @@ contract TradeExecutorTest is Test {
         submitIntent(user2, 500 * 10 ** 18, "SELL");
     }
 
-    function depositTokens(
-        address user,
-        uint256 privateKey,
-        uint256 amount
-    ) internal {
+    function depositTokens(address user, uint256 privateKey, uint256 amount) internal {
         uint256 deadline = block.timestamp + 1 hours;
         uint48 nonce = 0;
 
-        IAllowanceTransfer.PermitDetails memory details = IAllowanceTransfer
-            .PermitDetails({
-                token: address(token),
-                amount: uint160(amount),
-                expiration: uint48(deadline),
-                nonce: nonce
-            });
+        IAllowanceTransfer.PermitDetails memory details = IAllowanceTransfer.PermitDetails({
+            token: address(token),
+            amount: uint160(amount),
+            expiration: uint48(deadline),
+            nonce: nonce
+        });
 
-        IAllowanceTransfer.PermitSingle memory permitSingle = IAllowanceTransfer
-            .PermitSingle({
-                details: details,
-                spender: address(userManager),
-                sigDeadline: deadline
-            });
+        IAllowanceTransfer.PermitSingle memory permitSingle =
+            IAllowanceTransfer.PermitSingle({ details: details, spender: address(userManager), sigDeadline: deadline });
 
-        bytes32 digest = keccak256(
-            abi.encodePacked(
-                "\x19\x01",
-                permit2.DOMAIN_SEPARATOR(),
-                PermitHash.hash(permitSingle)
-            )
-        );
+        bytes32 digest =
+            keccak256(abi.encodePacked("\x19\x01", permit2.DOMAIN_SEPARATOR(), PermitHash.hash(permitSingle)));
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
         bytes memory signature = abi.encodePacked(r, s, v);
 
         vm.startPrank(user);
         token.approve(address(permit2), type(uint256).max);
-        userManager.permitDeposit(
-            uint160(amount),
-            deadline,
-            nonce,
-            signature,
-            ""
-        );
+        userManager.permitDeposit(uint160(amount), deadline, nonce, signature, "");
         vm.stopPrank();
     }
 
-    function submitIntent(
-        address user,
-        uint256 amount,
-        string memory intentType
-    ) internal {
+    function submitIntent(address user, uint256 amount, string memory intentType) internal {
         vm.prank(user);
         intentsEngine.submitIntent(amount, intentType, bytes("test"));
     }
@@ -174,14 +127,11 @@ contract TradeExecutorTest is Test {
         vm.prank(tradeExecutor.owner());
         tradeExecutor.settleIntent(user1, 0, 50 * 10 ** 18);
 
-        (uint256 availableBalance, uint256 lockedBalance) = userManager
-            .getUserBalance(user1);
-        assertEq(availableBalance, 10050 * 10 ** 18);
+        (uint256 availableBalance, uint256 lockedBalance) = userManager.getUserBalance(user1);
+        assertEq(availableBalance, 10_050 * 10 ** 18);
         assertEq(lockedBalance, 0);
 
-        IIntentsEngine.Intent[] memory intents = intentsEngine.getUserIntents(
-            user1
-        );
+        IIntentsEngine.Intent[] memory intents = intentsEngine.getUserIntents(user1);
         assertEq(intents[0].isExecuted, true);
     }
 
@@ -201,20 +151,16 @@ contract TradeExecutorTest is Test {
         vm.prank(tradeExecutor.owner());
         tradeExecutor.batchSettleIntents(users, intentIndices, pnls);
 
-        (uint256 user1Balance, uint256 user1LockedBalance) = userManager
-            .getUserBalance(user1);
-        (uint256 user2Balance, uint256 user2LockedBalance) = userManager
-            .getUserBalance(user2);
+        (uint256 user1Balance, uint256 user1LockedBalance) = userManager.getUserBalance(user1);
+        (uint256 user2Balance, uint256 user2LockedBalance) = userManager.getUserBalance(user2);
 
-        assertEq(user1Balance, 10050 * 10 ** 18);
+        assertEq(user1Balance, 10_050 * 10 ** 18);
         assertEq(user1LockedBalance, 0);
         assertEq(user2Balance, 9975 * 10 ** 18);
         assertEq(user2LockedBalance, 0);
 
-        IIntentsEngine.Intent[] memory user1Intents = intentsEngine
-            .getUserIntents(user1);
-        IIntentsEngine.Intent[] memory user2Intents = intentsEngine
-            .getUserIntents(user2);
+        IIntentsEngine.Intent[] memory user1Intents = intentsEngine.getUserIntents(user1);
+        IIntentsEngine.Intent[] memory user2Intents = intentsEngine.getUserIntents(user2);
 
         assertEq(user1Intents[0].isExecuted, true);
         assertEq(user2Intents[0].isExecuted, true);

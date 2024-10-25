@@ -6,12 +6,7 @@ import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "./interfaces/ITreasuryManager.sol";
 
-contract TreasuryManager is
-    Initializable,
-    OwnableUpgradeable,
-    PausableUpgradeable,
-    ITreasuryManager
-{
+contract TreasuryManager is Initializable, OwnableUpgradeable, PausableUpgradeable, ITreasuryManager {
     address public treasury;
 
     function initialize(address _treasury) public initializer {

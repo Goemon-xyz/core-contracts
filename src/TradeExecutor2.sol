@@ -20,10 +20,7 @@ contract TradeExecutor2 is ITradeExecutor2, Ownable {
     }
 
     modifier onlyGoemonCore() {
-        require(
-            msg.sender == goemonCore,
-            "Only GoemonCore can call this function"
-        );
+        require(msg.sender == goemonCore, "Only GoemonCore can call this function");
         _;
     }
 
@@ -31,24 +28,21 @@ contract TradeExecutor2 is ITradeExecutor2, Ownable {
         address user,
         uint256 amount,
         string calldata intentType
-    ) external override onlyGoemonCore returns (uint256) {
+    )
+        external
+        override
+        onlyGoemonCore
+        returns (uint256)
+    {
         uint256 nonce = nextNonce++;
-        trades[nonce] = Trade({
-            user: user,
-            amount: amount,
-            intentType: intentType,
-            timestamp: block.timestamp,
-            isSettled: false
-        });
+        trades[nonce] =
+            Trade({ user: user, amount: amount, intentType: intentType, timestamp: block.timestamp, isSettled: false });
 
         emit TradeInitiated(user, nonce, amount, intentType);
         return nonce;
     }
 
-    function settleTrade(
-        address user,
-        uint256 nonce
-    ) external override onlyGoemonCore {
+    function settleTrade(address user, uint256 nonce) external override onlyGoemonCore {
         require(!trades[nonce].isSettled, "Trade already settled");
         require(trades[nonce].user == user, "Invalid user for trade");
 

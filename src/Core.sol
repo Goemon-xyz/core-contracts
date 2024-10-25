@@ -36,7 +36,9 @@ contract Core is ICore, Ownable {
         address permit2Address,
         address tradeExecutorAddress,
         address treasuryAddress
-    ) Ownable(msg.sender) {
+    )
+        Ownable(msg.sender)
+    {
         require(tokenAddress != address(0), "Invalid token address");
         require(treasuryAddress != address(0), "Invalid treasury address");
         token = IERC20(tokenAddress);
@@ -64,40 +66,27 @@ contract Core is ICore, Ownable {
         uint256 deadline,
         uint48 nonce,
         bytes calldata signature
-    ) external {
-        IAllowanceTransfer.PermitSingle memory permitSingle = IAllowanceTransfer
-            .PermitSingle({
-                details: IAllowanceTransfer.PermitDetails({
-                    token: address(token),
-                    amount: uint160(amount),
-                    expiration: uint48(deadline),
-                    nonce: nonce
-                }),
-                spender: address(this),
-                sigDeadline: deadline
-            });
+    )
+        external
+    {
+        IAllowanceTransfer.PermitSingle memory permitSingle = IAllowanceTransfer.PermitSingle({
+            details: IAllowanceTransfer.PermitDetails({
+                token: address(token),
+                amount: uint160(amount),
+                expiration: uint48(deadline),
+                nonce: nonce
+            }),
+            spender: address(this),
+            sigDeadline: deadline
+        });
 
         permit2.permit(msg.sender, permitSingle, signature);
-        permit2.transferFrom(
-            msg.sender,
-            treasury,
-            uint160(amount),
-            address(token)
-        );
+        permit2.transferFrom(msg.sender, treasury, uint160(amount), address(token));
 
-        uint256 tradeNonce = tradeExecutor.initiateTrade(
-            msg.sender,
-            amount,
-            intentType
-        );
+        uint256 tradeNonce = tradeExecutor.initiateTrade(msg.sender, amount, intentType);
 
         userTrades[msg.sender].push(
-            Trade({
-                amount: amount,
-                timestamp: block.timestamp,
-                intentType: intentType,
-                isSettled: false
-            })
+            Trade({ amount: amount, timestamp: block.timestamp, intentType: intentType, isSettled: false })
         );
 
         emit TradeIntentSubmitted(msg.sender, amount, intentType, tradeNonce);
@@ -113,28 +102,13 @@ contract Core is ICore, Ownable {
      * @param amount The amount of tokens to trade.
      * @param intentType The type of trade intent (e.g., "BUY" or "SELL").
      */
-    function manualTradeIntent(
-        uint256 amount,
-        string calldata intentType
-    ) external {
-        require(
-            token.transferFrom(msg.sender, treasury, amount),
-            "Transfer failed"
-        );
+    function manualTradeIntent(uint256 amount, string calldata intentType) external {
+        require(token.transferFrom(msg.sender, treasury, amount), "Transfer failed");
 
-        uint256 tradeNonce = tradeExecutor.initiateTrade(
-            msg.sender,
-            amount,
-            intentType
-        );
+        uint256 tradeNonce = tradeExecutor.initiateTrade(msg.sender, amount, intentType);
 
         userTrades[msg.sender].push(
-            Trade({
-                amount: amount,
-                timestamp: block.timestamp,
-                intentType: intentType,
-                isSettled: false
-            })
+            Trade({ amount: amount, timestamp: block.timestamp, intentType: intentType, isSettled: false })
         );
 
         emit TradeIntentSubmitted(msg.sender, amount, intentType, tradeNonce);
@@ -152,10 +126,7 @@ contract Core is ICore, Ownable {
      */
     function settleTrade(address user, uint256 tradeIndex) external onlyOwner {
         require(tradeIndex < userTrades[user].length, "Invalid trade index");
-        require(
-            !userTrades[user][tradeIndex].isSettled,
-            "Trade already settled"
-        );
+        require(!userTrades[user][tradeIndex].isSettled, "Trade already settled");
 
         userTrades[user][tradeIndex].isSettled = true;
         tradeExecutor.settleTrade(user, tradeIndex);
@@ -168,9 +139,7 @@ contract Core is ICore, Ownable {
      * @param user The address of the user whose trades are being queried.
      * @return An array of Trade structs representing the user's trade history.
      */
-    function getUserTrades(
-        address user
-    ) external view returns (Trade[] memory) {
+    function getUserTrades(address user) external view returns (Trade[] memory) {
         return userTrades[user];
     }
 

@@ -40,11 +40,12 @@ contract IntentsEngine is
         uint256 amount,
         string calldata intentType,
         bytes calldata metadata
-    ) external nonReentrant whenNotPaused {
-        require(
-            userIntents[msg.sender].length < maxIntentsPerUser,
-            "Max intents limit reached"
-        );
+    )
+        external
+        nonReentrant
+        whenNotPaused
+    {
+        require(userIntents[msg.sender].length < maxIntentsPerUser, "Max intents limit reached");
 
         userManager.lockUserBalance(msg.sender, amount);
 
@@ -61,9 +62,7 @@ contract IntentsEngine is
         emit IntentSubmitted(msg.sender, amount, intentType, metadata);
     }
 
-    function getUserIntents(
-        address user
-    ) external view returns (Intent[] memory) {
+    function getUserIntents(address user) external view returns (Intent[] memory) {
         return userIntents[user];
     }
 
@@ -77,10 +76,7 @@ contract IntentsEngine is
             "Only UserManager or TradeExecutor can mark intents as executed"
         );
         require(intentIndex < userIntents[user].length, "Invalid intent index");
-        require(
-            !userIntents[user][intentIndex].isExecuted,
-            "Intent already executed"
-        );
+        require(!userIntents[user][intentIndex].isExecuted, "Intent already executed");
 
         userIntents[user][intentIndex].isExecuted = true;
     }

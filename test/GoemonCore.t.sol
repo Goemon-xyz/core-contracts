@@ -34,18 +34,11 @@ contract GoemonCoreTest is Test {
         GoemonCore implementationContract = new GoemonCore();
 
         // Prepare the initialization data
-        bytes memory initData = abi.encodeWithSelector(
-            GoemonCore.initialize.selector,
-            address(token),
-            address(permit2),
-            treasury
-        );
+        bytes memory initData =
+            abi.encodeWithSelector(GoemonCore.initialize.selector, address(token), address(permit2), treasury);
 
         // Deploy the proxy contract
-        ERC1967Proxy proxy = new ERC1967Proxy(
-            address(implementationContract),
-            initData
-        );
+        ERC1967Proxy proxy = new ERC1967Proxy(address(implementationContract), initData);
 
         // Cast the proxy to GoemonCore
         goemonCore = GoemonCore(address(proxy));
@@ -67,28 +60,18 @@ contract GoemonCoreTest is Test {
         uint256 deadline = block.timestamp + 1 hours;
         uint48 nonce = 0;
 
-        IAllowanceTransfer.PermitDetails memory details = IAllowanceTransfer
-            .PermitDetails({
-                token: address(token),
-                amount: uint160(amount),
-                expiration: uint48(deadline),
-                nonce: nonce
-            });
+        IAllowanceTransfer.PermitDetails memory details = IAllowanceTransfer.PermitDetails({
+            token: address(token),
+            amount: uint160(amount),
+            expiration: uint48(deadline),
+            nonce: nonce
+        });
 
-        IAllowanceTransfer.PermitSingle memory permitSingle = IAllowanceTransfer
-            .PermitSingle({
-                details: details,
-                spender: address(goemonCore),
-                sigDeadline: deadline
-            });
+        IAllowanceTransfer.PermitSingle memory permitSingle =
+            IAllowanceTransfer.PermitSingle({ details: details, spender: address(goemonCore), sigDeadline: deadline });
 
-        bytes32 digest = keccak256(
-            abi.encodePacked(
-                "\x19\x01",
-                permit2.DOMAIN_SEPARATOR(),
-                PermitHash.hash(permitSingle)
-            )
-        );
+        bytes32 digest =
+            keccak256(abi.encodePacked("\x19\x01", permit2.DOMAIN_SEPARATOR(), PermitHash.hash(permitSingle)));
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(user1PrivateKey, digest);
         bytes memory signature = abi.encodePacked(r, s, v);
@@ -98,7 +81,7 @@ contract GoemonCoreTest is Test {
         goemonCore.permitDeposit(uint160(amount), deadline, nonce, signature);
         vm.stopPrank();
 
-        (uint256 balance, ) = goemonCore.getUserBalance(user1);
+        (uint256 balance,) = goemonCore.getUserBalance(user1);
         assertEq(balance, amount);
     }
 
@@ -109,7 +92,7 @@ contract GoemonCoreTest is Test {
         vm.prank(user1);
         goemonCore.withdraw(withdrawAmount);
 
-        (uint256 balance, ) = goemonCore.getUserBalance(user1);
+        (uint256 balance,) = goemonCore.getUserBalance(user1);
         assertEq(balance, 500 * 10 ** 18);
     }
 
@@ -120,8 +103,7 @@ contract GoemonCoreTest is Test {
         vm.prank(user1);
         goemonCore.submitIntent(intentAmount, "BUY");
 
-        (uint256 availableBalance, uint256 lockedBalance) = goemonCore
-            .getUserBalance(user1);
+        (uint256 availableBalance, uint256 lockedBalance) = goemonCore.getUserBalance(user1);
         assertEq(availableBalance, 500 * 10 ** 18);
         assertEq(lockedBalance, 500 * 10 ** 18);
 
@@ -138,8 +120,7 @@ contract GoemonCoreTest is Test {
         vm.prank(goemonCore.owner());
         goemonCore.settleIntent(user1, 0, 50 * 10 ** 18);
 
-        (uint256 availableBalance, uint256 lockedBalance) = goemonCore
-            .getUserBalance(user1);
+        (uint256 availableBalance, uint256 lockedBalance) = goemonCore.getUserBalance(user1);
         assertEq(availableBalance, 1050 * 10 ** 18);
         assertEq(lockedBalance, 0);
 
@@ -155,28 +136,18 @@ contract GoemonCoreTest is Test {
         uint256 deadline = block.timestamp + 1 hours;
         uint48 nonce = 0;
 
-        IAllowanceTransfer.PermitDetails memory details = IAllowanceTransfer
-            .PermitDetails({
-                token: address(token),
-                amount: uint160(amount),
-                expiration: uint48(deadline),
-                nonce: nonce
-            });
+        IAllowanceTransfer.PermitDetails memory details = IAllowanceTransfer.PermitDetails({
+            token: address(token),
+            amount: uint160(amount),
+            expiration: uint48(deadline),
+            nonce: nonce
+        });
 
-        IAllowanceTransfer.PermitSingle memory permitSingle = IAllowanceTransfer
-            .PermitSingle({
-                details: details,
-                spender: address(goemonCore),
-                sigDeadline: deadline
-            });
+        IAllowanceTransfer.PermitSingle memory permitSingle =
+            IAllowanceTransfer.PermitSingle({ details: details, spender: address(goemonCore), sigDeadline: deadline });
 
-        bytes32 digest = keccak256(
-            abi.encodePacked(
-                "\x19\x01",
-                permit2.DOMAIN_SEPARATOR(),
-                PermitHash.hash(permitSingle)
-            )
-        );
+        bytes32 digest =
+            keccak256(abi.encodePacked("\x19\x01", permit2.DOMAIN_SEPARATOR(), PermitHash.hash(permitSingle)));
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(user2PrivateKey, digest);
         bytes memory signature = abi.encodePacked(r, s, v);
@@ -210,22 +181,16 @@ contract GoemonCoreTest is Test {
         vm.prank(goemonCore.owner());
         goemonCore.batchSettleIntents(users, intentIndices, pnls);
 
-        (uint256 user1Balance, uint256 user1LockedBalance) = goemonCore
-            .getUserBalance(user1);
-        (uint256 user2Balance, uint256 user2LockedBalance) = goemonCore
-            .getUserBalance(user2);
+        (uint256 user1Balance, uint256 user1LockedBalance) = goemonCore.getUserBalance(user1);
+        (uint256 user2Balance, uint256 user2LockedBalance) = goemonCore.getUserBalance(user2);
 
         assertEq(user1Balance, 1050 * 10 ** 18);
         assertEq(user1LockedBalance, 0);
         assertEq(user2Balance, 975 * 10 ** 18);
         assertEq(user2LockedBalance, 0);
 
-        GoemonCore.Intent[] memory user1Intents = goemonCore.getUserIntents(
-            user1
-        );
-        GoemonCore.Intent[] memory user2Intents = goemonCore.getUserIntents(
-            user2
-        );
+        GoemonCore.Intent[] memory user1Intents = goemonCore.getUserIntents(user1);
+        GoemonCore.Intent[] memory user2Intents = goemonCore.getUserIntents(user2);
 
         assertEq(user1Intents[0].isExecuted, true);
         assertEq(user2Intents[0].isExecuted, true);
@@ -293,40 +258,25 @@ contract GoemonCoreTest is Test {
         uint256 deadline = block.timestamp + 1 hours;
         uint48 nonce = 0;
 
-        IAllowanceTransfer.PermitDetails memory details = IAllowanceTransfer
-            .PermitDetails({
-                token: address(token),
-                amount: uint160(depositAmount),
-                expiration: uint48(deadline),
-                nonce: nonce
-            });
+        IAllowanceTransfer.PermitDetails memory details = IAllowanceTransfer.PermitDetails({
+            token: address(token),
+            amount: uint160(depositAmount),
+            expiration: uint48(deadline),
+            nonce: nonce
+        });
 
-        IAllowanceTransfer.PermitSingle memory permitSingle = IAllowanceTransfer
-            .PermitSingle({
-                details: details,
-                spender: address(goemonCore),
-                sigDeadline: deadline
-            });
+        IAllowanceTransfer.PermitSingle memory permitSingle =
+            IAllowanceTransfer.PermitSingle({ details: details, spender: address(goemonCore), sigDeadline: deadline });
 
-        bytes32 digest = keccak256(
-            abi.encodePacked(
-                "\x19\x01",
-                permit2.DOMAIN_SEPARATOR(),
-                PermitHash.hash(permitSingle)
-            )
-        );
+        bytes32 digest =
+            keccak256(abi.encodePacked("\x19\x01", permit2.DOMAIN_SEPARATOR(), PermitHash.hash(permitSingle)));
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(user1PrivateKey, digest);
         bytes memory signature = abi.encodePacked(r, s, v);
 
         vm.startPrank(user1);
         token.approve(address(permit2), type(uint256).max);
-        goemonCore.permitDeposit(
-            uint160(depositAmount),
-            deadline,
-            nonce,
-            signature
-        );
+        goemonCore.permitDeposit(uint160(depositAmount), deadline, nonce, signature);
 
         // Now submit intents
         for (uint256 i = 0; i < newMax; i++) {

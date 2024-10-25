@@ -29,10 +29,7 @@ contract UserManager is
 
     mapping(address => User) private users;
 
-    function initialize(
-        address tokenAddress,
-        address permit2Address
-    ) public initializer {
+    function initialize(address tokenAddress, address permit2Address) public initializer {
         __Ownable_init(msg.sender);
         __ReentrancyGuard_init();
         __Pausable_init();
@@ -64,54 +61,38 @@ contract UserManager is
         uint256 nonce,
         bytes calldata permitTransferFrom,
         bytes calldata signature
-    ) external nonReentrant whenNotPaused {
+    )
+        external
+        nonReentrant
+        whenNotPaused
+    {
         emit PermitDataReceived(amount, deadline, nonce);
         require(block.timestamp <= deadline, "Permit expired");
 
-        (address permittedToken, uint256 permitAmount) = abi.decode(
-            permitTransferFrom,
-            (address, uint256)
-        );
+        (address permittedToken, uint256 permitAmount) = abi.decode(permitTransferFrom, (address, uint256));
 
         emit TokenValidated(permittedToken, permitAmount);
         require(permittedToken == address(token), "Invalid token");
         require(permitAmount == amount, "Amount mismatch");
 
         emit PermitExecutionStarted();
-        try
-            permit2.permitTransferFrom(
-                ISignatureTransfer.PermitTransferFrom({
-                    permitted: ISignatureTransfer.TokenPermissions({
-                        token: permittedToken,
-                        amount: amount
-                    }),
-                    nonce: nonce,
-                    deadline: deadline
-                }),
-                ISignatureTransfer.SignatureTransferDetails({
-                    to: address(this),
-                    requestedAmount: amount
-                }),
-                msg.sender,
-                signature
-            )
-        {
+        try permit2.permitTransferFrom(
+            ISignatureTransfer.PermitTransferFrom({
+                permitted: ISignatureTransfer.TokenPermissions({ token: permittedToken, amount: amount }),
+                nonce: nonce,
+                deadline: deadline
+            }),
+            ISignatureTransfer.SignatureTransferDetails({ to: address(this), requestedAmount: amount }),
+            msg.sender,
+            signature
+        ) {
             users[msg.sender].balance += amount;
             emit PermitExecutionCompleted();
             emit Deposit(msg.sender, amount);
         } catch Error(string memory reason) {
-            revert(
-                string(abi.encodePacked("Permit2 transfer failed: ", reason))
-            );
+            revert(string(abi.encodePacked("Permit2 transfer failed: ", reason)));
         } catch (bytes memory lowLevelData) {
-            revert(
-                string(
-                    abi.encodePacked(
-                        "Permit2 transfer failed: ",
-                        _toHex(lowLevelData)
-                    )
-                )
-            );
+            revert(string(abi.encodePacked("Permit2 transfer failed: ", _toHex(lowLevelData))));
         }
     }
 
@@ -120,9 +101,9 @@ contract UserManager is
         bytes memory str = new bytes(2 + data.length * 2);
         str[0] = "0";
         str[1] = "x";
-        for (uint i = 0; i < data.length; i++) {
-            str[2 + i * 2] = alphabet[uint(uint8(data[i] >> 4))];
-            str[3 + i * 2] = alphabet[uint(uint8(data[i] & 0x0f))];
+        for (uint256 i = 0; i < data.length; i++) {
+            str[2 + i * 2] = alphabet[uint256(uint8(data[i] >> 4))];
+            str[3 + i * 2] = alphabet[uint256(uint8(data[i] & 0x0f))];
         }
         return string(str);
     }
@@ -134,48 +115,31 @@ contract UserManager is
         emit Withdraw(msg.sender, amount);
     }
 
-    function getUserBalance(
-        address user
-    ) external view returns (uint256 availableBalance, uint256 lockedBalance) {
+    function getUserBalance(address user) external view returns (uint256 availableBalance, uint256 lockedBalance) {
         User storage userData = users[user];
         return (userData.balance, userData.lockedBalance);
     }
 
     function lockUserBalance(address user, uint256 amount) external {
-        require(
-            msg.sender == address(intentsEngine),
-            "Only IntentsEngine can lock balance"
-        );
+        require(msg.sender == address(intentsEngine), "Only IntentsEngine can lock balance");
         require(users[user].balance >= amount, "Insufficient balance");
         users[user].balance -= amount;
         users[user].lockedBalance += amount;
     }
 
     function unlockUserBalance(address user, uint256 amount) external {
-        require(
-            msg.sender == address(tradeExecutor),
-            "Only TradeExecutor can unlock balance"
-        );
-        require(
-            users[user].lockedBalance >= amount,
-            "Insufficient locked balance"
-        );
+        require(msg.sender == address(tradeExecutor), "Only TradeExecutor can unlock balance");
+        require(users[user].lockedBalance >= amount, "Insufficient locked balance");
         users[user].lockedBalance -= amount;
         users[user].balance += amount;
     }
 
     function adjustUserBalance(address user, int256 amount) external {
-        require(
-            msg.sender == address(tradeExecutor),
-            "Only TradeExecutor can adjust balance"
-        );
+        require(msg.sender == address(tradeExecutor), "Only TradeExecutor can adjust balance");
         if (amount > 0) {
             users[user].balance += uint256(amount);
         } else {
-            require(
-                users[user].balance >= uint256(-amount),
-                "Insufficient balance"
-            );
+            require(users[user].balance >= uint256(-amount), "Insufficient balance");
             users[user].balance -= uint256(-amount);
         }
     }

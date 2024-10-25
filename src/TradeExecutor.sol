@@ -22,11 +22,7 @@ contract TradeExecutor is
 
     uint256 public constant MAX_BATCH_SIZE = 100;
 
-    function initialize(
-        address _userManager,
-        address _intentsEngine,
-        address _treasury
-    ) public initializer {
+    function initialize(address _userManager, address _intentsEngine, address _treasury) public initializer {
         __Ownable_init(msg.sender);
         __ReentrancyGuard_init();
         __Pausable_init();
@@ -44,7 +40,12 @@ contract TradeExecutor is
         address user,
         uint256 intentIndex,
         int256 pnl
-    ) external onlyOwner nonReentrant whenNotPaused {
+    )
+        external
+        onlyOwner
+        nonReentrant
+        whenNotPaused
+    {
         _settleIntent(user, intentIndex, pnl);
     }
 
@@ -52,12 +53,13 @@ contract TradeExecutor is
         address[] calldata allUsers,
         uint256[] calldata intentIndices,
         int256[] calldata pnls
-    ) external onlyOwner nonReentrant whenNotPaused {
-        require(
-            allUsers.length == intentIndices.length &&
-                allUsers.length == pnls.length,
-            "Array lengths mismatch"
-        );
+    )
+        external
+        onlyOwner
+        nonReentrant
+        whenNotPaused
+    {
+        require(allUsers.length == intentIndices.length && allUsers.length == pnls.length, "Array lengths mismatch");
         require(allUsers.length <= MAX_BATCH_SIZE, "Batch size exceeds limit");
 
         for (uint256 i = 0; i < allUsers.length; i++) {
@@ -65,14 +67,8 @@ contract TradeExecutor is
         }
     }
 
-    function _settleIntent(
-        address user,
-        uint256 intentIndex,
-        int256 pnl
-    ) internal {
-        IIntentsEngine.Intent[] memory intents = intentsEngine.getUserIntents(
-            user
-        );
+    function _settleIntent(address user, uint256 intentIndex, int256 pnl) internal {
+        IIntentsEngine.Intent[] memory intents = intentsEngine.getUserIntents(user);
         require(intentIndex < intents.length, "Invalid intent index");
         require(!intents[intentIndex].isExecuted, "Intent already executed");
 

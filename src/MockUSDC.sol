@@ -8,7 +8,7 @@ contract MockUSDC is ERC20 {
     constructor() ERC20("USD Coin", "USDC") {
         // Mint initial supply of 1,000,000 USDC to the deployer's address
         // USDC uses 6 decimals, so we multiply by 10^6 to match USDC's precision
-        _mint(msg.sender, 1000000 * 10**6);
+        _mint(msg.sender, 1_000_000 * 10 ** 6);
     }
 
     // Override decimals to set 6 decimal places (USDC has 6 decimals)

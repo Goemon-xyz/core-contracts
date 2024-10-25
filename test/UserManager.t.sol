@@ -37,53 +37,30 @@ contract UserManagerTest is Test {
 
         // Deploy UserManager
         UserManager userManagerImpl = new UserManager();
-        bytes memory userManagerInitData = abi.encodeWithSelector(
-            UserManager.initialize.selector,
-            address(token),
-            address(permit2)
-        );
-        ERC1967Proxy userManagerProxy = new ERC1967Proxy(
-            address(userManagerImpl),
-            userManagerInitData
-        );
+        bytes memory userManagerInitData =
+            abi.encodeWithSelector(UserManager.initialize.selector, address(token), address(permit2));
+        ERC1967Proxy userManagerProxy = new ERC1967Proxy(address(userManagerImpl), userManagerInitData);
         userManager = UserManager(address(userManagerProxy));
 
         // Deploy IntentsEngine
         IntentsEngine intentsEngineImpl = new IntentsEngine();
-        bytes memory intentsEngineInitData = abi.encodeWithSelector(
-            IntentsEngine.initialize.selector,
-            address(userManager)
-        );
-        ERC1967Proxy intentsEngineProxy = new ERC1967Proxy(
-            address(intentsEngineImpl),
-            intentsEngineInitData
-        );
+        bytes memory intentsEngineInitData =
+            abi.encodeWithSelector(IntentsEngine.initialize.selector, address(userManager));
+        ERC1967Proxy intentsEngineProxy = new ERC1967Proxy(address(intentsEngineImpl), intentsEngineInitData);
         intentsEngine = IntentsEngine(address(intentsEngineProxy));
 
         // Deploy TreasuryManager
         TreasuryManager treasuryManagerImpl = new TreasuryManager();
-        bytes memory treasuryManagerInitData = abi.encodeWithSelector(
-            TreasuryManager.initialize.selector,
-            treasury
-        );
-        ERC1967Proxy treasuryManagerProxy = new ERC1967Proxy(
-            address(treasuryManagerImpl),
-            treasuryManagerInitData
-        );
+        bytes memory treasuryManagerInitData = abi.encodeWithSelector(TreasuryManager.initialize.selector, treasury);
+        ERC1967Proxy treasuryManagerProxy = new ERC1967Proxy(address(treasuryManagerImpl), treasuryManagerInitData);
         treasuryManager = TreasuryManager(address(treasuryManagerProxy));
 
         // Deploy TradeExecutor
         TradeExecutor tradeExecutorImpl = new TradeExecutor();
         bytes memory tradeExecutorInitData = abi.encodeWithSelector(
-            TradeExecutor.initialize.selector,
-            address(userManager),
-            address(intentsEngine),
-            address(treasuryManager)
+            TradeExecutor.initialize.selector, address(userManager), address(intentsEngine), address(treasuryManager)
         );
-        ERC1967Proxy tradeExecutorProxy = new ERC1967Proxy(
-            address(tradeExecutorImpl),
-            tradeExecutorInitData
-        );
+        ERC1967Proxy tradeExecutorProxy = new ERC1967Proxy(address(tradeExecutorImpl), tradeExecutorInitData);
         tradeExecutor = TradeExecutor(address(tradeExecutorProxy));
 
         // Set up connections between contracts
@@ -105,7 +82,11 @@ contract UserManagerTest is Test {
     function _getPermitTypedDataHash(
         ISignatureTransfer.PermitTransferFrom memory permit,
         address spender
-    ) internal view returns (bytes32) {
+    )
+        internal
+        view
+        returns (bytes32)
+    {
         bytes32 PERMIT_TRANSFER_FROM_TYPEHASH = keccak256(
             "PermitTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline)TokenPermissions(address token,uint256 amount)"
         );
@@ -119,21 +100,12 @@ contract UserManagerTest is Test {
         );
 
         bytes32 structHash = keccak256(
-            abi.encode(
-                PERMIT_TRANSFER_FROM_TYPEHASH,
-                tokenPermissionsHash,
-                spender,
-                permit.nonce,
-                permit.deadline
-            )
+            abi.encode(PERMIT_TRANSFER_FROM_TYPEHASH, tokenPermissionsHash, spender, permit.nonce, permit.deadline)
         );
 
         bytes32 DOMAIN_SEPARATOR = permit2.DOMAIN_SEPARATOR();
 
-        return
-            keccak256(
-                abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, structHash)
-            );
+        return keccak256(abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, structHash));
     }
 
     function testPermitDeposit() public {
@@ -141,22 +113,14 @@ contract UserManagerTest is Test {
         uint256 deadline = block.timestamp + 1 hours;
         uint256 nonce = 0;
 
-        ISignatureTransfer.PermitTransferFrom memory permit = ISignatureTransfer
-            .PermitTransferFrom({
-                permitted: ISignatureTransfer.TokenPermissions({
-                    token: address(token),
-                    amount: amount
-                }),
-                nonce: nonce,
-                deadline: deadline
-            });
+        ISignatureTransfer.PermitTransferFrom memory permit = ISignatureTransfer.PermitTransferFrom({
+            permitted: ISignatureTransfer.TokenPermissions({ token: address(token), amount: amount }),
+            nonce: nonce,
+            deadline: deadline
+        });
 
-        ISignatureTransfer.SignatureTransferDetails
-            memory transferDetails = ISignatureTransfer
-                .SignatureTransferDetails({
-                    to: address(userManager),
-                    requestedAmount: amount
-                });
+        ISignatureTransfer.SignatureTransferDetails memory transferDetails =
+            ISignatureTransfer.SignatureTransferDetails({ to: address(userManager), requestedAmount: amount });
 
         bytes32 digest = _getPermitTypedDataHash(permit, address(userManager));
 
@@ -167,16 +131,10 @@ contract UserManagerTest is Test {
 
         vm.startPrank(user1);
         token.approve(address(permit2), type(uint256).max);
-        userManager.permitDeposit(
-            amount,
-            deadline,
-            nonce,
-            permitTransferFrom,
-            signature
-        );
+        userManager.permitDeposit(amount, deadline, nonce, permitTransferFrom, signature);
         vm.stopPrank();
 
-        (uint256 balance, ) = userManager.getUserBalance(user1);
+        (uint256 balance,) = userManager.getUserBalance(user1);
         assertEq(balance, amount, "Deposit amount should match user balance");
     }
 
@@ -187,7 +145,7 @@ contract UserManagerTest is Test {
         vm.prank(user1);
         userManager.withdraw(withdrawAmount);
 
-        (uint256 balance, ) = userManager.getUserBalance(user1);
+        (uint256 balance,) = userManager.getUserBalance(user1);
         assertEq(balance, 500 * 10 ** 18);
     }
 

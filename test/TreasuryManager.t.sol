@@ -21,14 +21,8 @@ contract TreasuryManagerTest is Test {
 
         // Deploy TreasuryManager
         TreasuryManager treasuryManagerImpl = new TreasuryManager();
-        bytes memory treasuryManagerInitData = abi.encodeWithSelector(
-            TreasuryManager.initialize.selector,
-            treasury
-        );
-        ERC1967Proxy treasuryManagerProxy = new ERC1967Proxy(
-            address(treasuryManagerImpl),
-            treasuryManagerInitData
-        );
+        bytes memory treasuryManagerInitData = abi.encodeWithSelector(TreasuryManager.initialize.selector, treasury);
+        ERC1967Proxy treasuryManagerProxy = new ERC1967Proxy(address(treasuryManagerImpl), treasuryManagerInitData);
         treasuryManager = TreasuryManager(address(treasuryManagerProxy));
     }
 

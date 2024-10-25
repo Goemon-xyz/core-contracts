@@ -2,21 +2,12 @@
 pragma solidity ^0.8.26;
 
 library SignatureVerifier {
-    function verifySignature(
-        address signer,
-        bytes32 hash,
-        bytes memory signature
-    ) internal pure returns (bool) {
-        bytes32 messageHash = keccak256(
-            abi.encodePacked("\x19Ethereum Signed Message:\n32", hash)
-        );
+    function verifySignature(address signer, bytes32 hash, bytes memory signature) internal pure returns (bool) {
+        bytes32 messageHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", hash));
         return recoverSigner(messageHash, signature) == signer;
     }
 
-    function recoverSigner(
-        bytes32 hash,
-        bytes memory signature
-    ) internal pure returns (address) {
+    function recoverSigner(bytes32 hash, bytes memory signature) internal pure returns (address) {
         require(signature.length == 65, "Invalid signature length");
 
         bytes32 r;

@@ -29,11 +29,7 @@ contract DeployAllContracts is Script {
 
         // 3. Deploy TradeExecutor contract (depends on UserManager and IntentsEngine)
         TradeExecutor tradeExecutor = new TradeExecutor();
-        tradeExecutor.initialize(
-            address(userManager),
-            address(intentsEngine),
-            treasuryAddress
-        );
+        tradeExecutor.initialize(address(userManager), address(intentsEngine), treasuryAddress);
         console2.log("TradeExecutor deployed to:", address(tradeExecutor));
 
         // 4. Deploy TreasuryManager contract

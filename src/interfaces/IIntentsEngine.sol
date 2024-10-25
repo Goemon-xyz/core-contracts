@@ -10,22 +10,11 @@ interface IIntentsEngine {
         bytes metadata;
     }
 
-    event IntentSubmitted(
-        address indexed user,
-        uint256 amount,
-        string intentType,
-        bytes metadata
-    );
+    event IntentSubmitted(address indexed user, uint256 amount, string intentType, bytes metadata);
 
-    function submitIntent(
-        uint256 amount,
-        string calldata intentType,
-        bytes calldata metadata
-    ) external;
+    function submitIntent(uint256 amount, string calldata intentType, bytes calldata metadata) external;
 
-    function getUserIntents(
-        address user
-    ) external view returns (Intent[] memory);
+    function getUserIntents(address user) external view returns (Intent[] memory);
 
     function setMaxIntentsPerUser(uint256 newMax) external;
 

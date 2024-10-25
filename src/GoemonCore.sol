@@ -36,11 +36,7 @@ contract GoemonCore is
     uint256 public constant MAX_BATCH_SIZE = 100;
     uint256 public maxIntentsPerUser;
 
-    function initialize(
-        address tokenAddress,
-        address permit2Address,
-        address treasuryAddress
-    ) public initializer {
+    function initialize(address tokenAddress, address permit2Address, address treasuryAddress) public initializer {
         __Ownable_init(msg.sender);
         __ReentrancyGuard_init();
         __Pausable_init();
@@ -59,18 +55,21 @@ contract GoemonCore is
         uint256 deadline,
         uint48 nonce,
         bytes calldata signature
-    ) external nonReentrant whenNotPaused {
-        IAllowanceTransfer.PermitSingle memory permitSingle = IAllowanceTransfer
-            .PermitSingle({
-                details: IAllowanceTransfer.PermitDetails({
-                    token: address(token),
-                    amount: amount,
-                    expiration: uint48(deadline),
-                    nonce: nonce
-                }),
-                spender: address(this),
-                sigDeadline: deadline
-            });
+    )
+        external
+        nonReentrant
+        whenNotPaused
+    {
+        IAllowanceTransfer.PermitSingle memory permitSingle = IAllowanceTransfer.PermitSingle({
+            details: IAllowanceTransfer.PermitDetails({
+                token: address(token),
+                amount: amount,
+                expiration: uint48(deadline),
+                nonce: nonce
+            }),
+            spender: address(this),
+            sigDeadline: deadline
+        });
 
         permit2.permit(msg.sender, permitSingle, signature);
         permit2.transferFrom(msg.sender, address(this), amount, address(token));
@@ -86,30 +85,16 @@ contract GoemonCore is
         emit Withdraw(msg.sender, amount);
     }
 
-    function submitIntent(
-        uint256 amount,
-        string calldata intentType
-    ) external nonReentrant whenNotPaused {
-        require(
-            userIntents[msg.sender].length < maxIntentsPerUser,
-            "Max intents limit reached"
-        );
+    function submitIntent(uint256 amount, string calldata intentType) external nonReentrant whenNotPaused {
+        require(userIntents[msg.sender].length < maxIntentsPerUser, "Max intents limit reached");
         User storage user = users[msg.sender];
-        require(
-            user.balance >= amount,
-            "Insufficient balance for intent submission"
-        );
+        require(user.balance >= amount, "Insufficient balance for intent submission");
 
         user.balance -= amount;
         user.lockedBalance += amount;
 
         userIntents[msg.sender].push(
-            Intent({
-                amount: amount,
-                intentType: intentType,
-                timestamp: block.timestamp,
-                isExecuted: false
-            })
+            Intent({ amount: amount, intentType: intentType, timestamp: block.timestamp, isExecuted: false })
         );
 
         emit IntentSubmitted(msg.sender, amount, intentType);
@@ -119,7 +104,12 @@ contract GoemonCore is
         address user,
         uint256 intentIndex,
         int256 pnl
-    ) external onlyOwner nonReentrant whenNotPaused {
+    )
+        external
+        onlyOwner
+        nonReentrant
+        whenNotPaused
+    {
         _settleIntent(user, intentIndex, pnl);
     }
 
@@ -127,23 +117,20 @@ contract GoemonCore is
         address[] calldata allUsers,
         uint256[] calldata intentIndices,
         int256[] calldata pnls
-    ) external onlyOwner nonReentrant whenNotPaused {
-        require(
-            allUsers.length == intentIndices.length &&
-                allUsers.length == pnls.length,
-            "Array lengths mismatch"
-        );
+    )
+        external
+        onlyOwner
+        nonReentrant
+        whenNotPaused
+    {
+        require(allUsers.length == intentIndices.length && allUsers.length == pnls.length, "Array lengths mismatch");
         require(allUsers.length <= MAX_BATCH_SIZE, "Batch size exceeds limit");
 
         uint256 totalProfit = 0;
         uint256 totalLoss = 0;
 
         for (uint256 i = 0; i < allUsers.length; i++) {
-            (uint256 profit, uint256 loss) = _settleIntent(
-                allUsers[i],
-                intentIndices[i],
-                pnls[i]
-            );
+            (uint256 profit, uint256 loss) = _settleIntent(allUsers[i], intentIndices[i], pnls[i]);
             totalProfit += profit;
             totalLoss += loss;
         }
@@ -160,16 +147,16 @@ contract GoemonCore is
         address user,
         uint256 intentIndex,
         int256 pnl
-    ) internal returns (uint256 profit, uint256 loss) {
+    )
+        internal
+        returns (uint256 profit, uint256 loss)
+    {
         require(intentIndex < userIntents[user].length, "Invalid intent index");
         Intent storage intent = userIntents[user][intentIndex];
         require(!intent.isExecuted, "Intent already executed");
 
         User storage trader = users[user];
-        require(
-            trader.lockedBalance >= intent.amount,
-            "Insufficient locked balance"
-        );
+        require(trader.lockedBalance >= intent.amount, "Insufficient locked balance");
 
         trader.lockedBalance -= intent.amount;
 
@@ -189,16 +176,12 @@ contract GoemonCore is
         emit IntentSettled(user, intentIndex, pnl);
     }
 
-    function getUserBalance(
-        address user
-    ) external view returns (uint256 availableBalance, uint256 lockedBalance) {
+    function getUserBalance(address user) external view returns (uint256 availableBalance, uint256 lockedBalance) {
         User storage userData = users[user];
         return (userData.balance, userData.lockedBalance);
     }
 
-    function getUserIntents(
-        address user
-    ) external view returns (Intent[] memory) {
+    function getUserIntents(address user) external view returns (Intent[] memory) {
         return userIntents[user];
     }
 

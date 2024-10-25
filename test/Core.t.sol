@@ -31,12 +31,7 @@ contract CoreTest is Test {
         tradeExecutor = new TradeExecutor2();
         treasury = address(0x1);
 
-        core = new Core(
-            address(token),
-            address(permit2),
-            address(tradeExecutor),
-            treasury
-        );
+        core = new Core(address(token), address(permit2), address(tradeExecutor), treasury);
 
         // Set the correct GoemonCore address in TradeExecutor
         tradeExecutor.setGoemonCore(address(core));
@@ -55,29 +50,19 @@ contract CoreTest is Test {
         uint48 nonce = 0;
 
         // Prepare Permit2's data
-        IAllowanceTransfer.PermitDetails memory details = IAllowanceTransfer
-            .PermitDetails({
-                token: address(token),
-                amount: uint160(amount),
-                expiration: uint48(deadline),
-                nonce: nonce
-            });
+        IAllowanceTransfer.PermitDetails memory details = IAllowanceTransfer.PermitDetails({
+            token: address(token),
+            amount: uint160(amount),
+            expiration: uint48(deadline),
+            nonce: nonce
+        });
 
-        IAllowanceTransfer.PermitSingle memory permitSingle = IAllowanceTransfer
-            .PermitSingle({
-                details: details,
-                spender: address(core),
-                sigDeadline: deadline
-            });
+        IAllowanceTransfer.PermitSingle memory permitSingle =
+            IAllowanceTransfer.PermitSingle({ details: details, spender: address(core), sigDeadline: deadline });
 
         // Generate the correct hash using Permit2's hashing function
-        bytes32 digest = keccak256(
-            abi.encodePacked(
-                "\x19\x01",
-                permit2.DOMAIN_SEPARATOR(),
-                PermitHash.hash(permitSingle)
-            )
-        );
+        bytes32 digest =
+            keccak256(abi.encodePacked("\x19\x01", permit2.DOMAIN_SEPARATOR(), PermitHash.hash(permitSingle)));
 
         // Sign the digest using the test private key
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(user1PrivateKey, digest);

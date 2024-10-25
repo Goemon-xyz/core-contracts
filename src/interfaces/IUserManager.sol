@@ -16,13 +16,12 @@ interface IUserManager {
         uint256 nonce,
         bytes calldata permitTransferFrom,
         bytes calldata signature
-    ) external;
+    )
+        external;
 
     function withdraw(uint256 amount) external;
 
-    function getUserBalance(
-        address user
-    ) external view returns (uint256 availableBalance, uint256 lockedBalance);
+    function getUserBalance(address user) external view returns (uint256 availableBalance, uint256 lockedBalance);
 
     function lockUserBalance(address user, uint256 amount) external;
 
