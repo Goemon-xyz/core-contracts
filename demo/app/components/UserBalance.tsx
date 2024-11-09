@@ -5,7 +5,7 @@ import { useWeb3React } from '@web3-react/core';
 import { ethers } from 'ethers';
 import UserManagerABI from '../abi/UserManagerABI.json';
 
-const USER_MANAGER_ADDRESS = '';
+const USER_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_USER_MANAGER_ADDRESS!;
 
 const UserBalance = () => {
   const { account, isActive, provider } = useWeb3React();

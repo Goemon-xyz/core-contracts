@@ -6,7 +6,7 @@ import UserManagerABI from '../abi/UserManagerABI.json';
 
 
 // Constants
-const USER_MANAGER_ADDRESS = '';
+const USER_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_USER_MANAGER_ADDRESS!;
 const USDC_DECIMALS = 6;
 
 const WithdrawComponent = () => {

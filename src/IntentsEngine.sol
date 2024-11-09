@@ -28,7 +28,7 @@ contract IntentsEngine is
 
         require(_userManager != address(0), "Invalid UserManager address");
         userManager = IUserManager(_userManager);
-        maxIntentsPerUser = 10; // Default value, can be changed later
+        maxIntentsPerUser = 75000; // Default value, can be changed later
     }
 
     function setTradeExecutor(address _tradeExecutor) external onlyOwner {

@@ -6,7 +6,7 @@ import { ethers, BigNumber } from 'ethers';
 import UserManagerABI from '../abi/UserManagerABI.json';
 
 // Constants
-const USER_MANAGER_ADDRESS = '';
+const USER_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_USER_MANAGER_ADDRESS!;
 const PERMIT2_ADDRESS = '0x000000000022D473030F116dDEE9F6B43aC78BA3';
 const TOKEN_ADDRESS = '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238'; // Sepolia USDC address
 const USDC_DECIMALS = 6;
@@ -67,7 +67,7 @@ export function DepositComponent() {
       
       const amountWei = ethers.utils.parseUnits(amount, USDC_DECIMALS);
       const deadline = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now
-      const nonce = 9;
+      const nonce = 16;
   
       const domain = {
         name: 'Permit2',
@@ -123,6 +123,7 @@ export function DepositComponent() {
         console.error('callStatic error:', error);
         // Handle the error or return early
       }
+      
       const usdcContract = new ethers.Contract(TOKEN_ADDRESS, ['function allowance(address,address) view returns (uint256)', 'function approve(address,uint256)'], signer);
       const allowance = await usdcContract.allowance(account, PERMIT2_ADDRESS);
       console.log('Current USDC allowance for Permit2:', allowance.toString());
