@@ -28,7 +28,7 @@ contract IntentsEngine is
 
         require(_userManager != address(0), "Invalid UserManager address");
         userManager = IUserManager(_userManager);
-        maxIntentsPerUser = 75000; // Default value, can be changed later
+       
     }
 
     function setTradeExecutor(address _tradeExecutor) external onlyOwner {
@@ -45,7 +45,6 @@ contract IntentsEngine is
         nonReentrant
         whenNotPaused
     {
-        require(userIntents[msg.sender].length < maxIntentsPerUser, "Max intents limit reached");
 
         userManager.lockUserBalance(msg.sender, amount);
 
