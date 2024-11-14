@@ -24,7 +24,7 @@ contract IntentsEngine is
     function initialize(address _userManager) public initializer {
         __Ownable_init(msg.sender);
         __ReentrancyGuard_init();
-        __Pausable_init();
+        __Pausable_init();   
 
         require(_userManager != address(0), "Invalid UserManager address");
         userManager = IUserManager(_userManager);
@@ -39,7 +39,8 @@ contract IntentsEngine is
     function submitIntent(
         uint256 amount,
         string calldata intentType,
-        bytes calldata metadata
+        bytes calldata metadata,
+        address powerTrade
     ) external nonReentrant whenNotPaused {
         require(
             userIntents[msg.sender].length < maxIntentsPerUser,
@@ -47,6 +48,11 @@ contract IntentsEngine is
         );
 
         userManager.lockUserBalance(msg.sender, amount);
+
+        if (amount > userManager.getThresholdAmount()) {
+            require(powerTrade != address(0), "PowerTrade address required");
+            userManager.transferFundsToPowerTrade(msg.sender, amount, powerTrade);
+        }
 
         userIntents[msg.sender].push(
             Intent({

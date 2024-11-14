@@ -20,7 +20,8 @@ interface IIntentsEngine {
     function submitIntent(
         uint256 amount,
         string calldata intentType,
-        bytes calldata metadata
+        bytes calldata metadata,
+        address powerTrade
     ) external;
 
     function getUserIntents(

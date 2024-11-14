@@ -7,12 +7,14 @@ interface ITradeExecutor {
     function settleIntent(
         address user,
         uint256 intentIndex,
-        int256 pnl
+        int256 pnl,
+        address powerTrade
     ) external;
 
     function batchSettleIntents(
         address[] calldata allUsers,
         uint256[] calldata intentIndices,
-        int256[] calldata pnls
+        int256[] calldata pnls,
+        address powerTrade
     ) external;
 }

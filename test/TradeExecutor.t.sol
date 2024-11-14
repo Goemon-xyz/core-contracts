@@ -29,23 +29,36 @@ contract TradeExecutorTest is Test {
     address public user2;
     uint256 public user1PrivateKey;
     uint256 public user2PrivateKey;
+    uint256 public thresholdAmount = 100 * 10 ** 18; // Lower threshold for testing
+    uint48 public nonce; // State variable for nonce
+    address public powerTrade; // Add powerTrade address
+    uint256 public powerTradePrivateKey;
 
     function setUp() public {
         token = new MockToken();
         treasury = address(0xe3A9A99347e771735eaDf4DF7f6fF0D4f2Edb61B);
         permit2 = IPermit2(address(0x000000000022D473030F116dDEE9F6B43aC78BA3));
 
-        // Deploy UserManager
+        // Create accounts with private keys
+        user1PrivateKey = 0xA11CE;
+        user2PrivateKey = 0xB0B;
+        powerTradePrivateKey = 0xC0C0A;
+        user1 = vm.addr(user1PrivateKey);
+        user2 = vm.addr(user2PrivateKey);
+        powerTrade = vm.addr(powerTradePrivateKey);
+
+        // Deploy UserManager with threshold
         UserManager userManagerImpl = new UserManager();
         bytes memory userManagerInitData = abi.encodeWithSelector(
             UserManager.initialize.selector,
             address(token),
-            address(permit2)
+            address(permit2),
+            thresholdAmount // Pass the threshold amount here
         );
         ERC1967Proxy userManagerProxy = new ERC1967Proxy(
             address(userManagerImpl),
             userManagerInitData
-        );
+        );    
         userManager = UserManager(address(userManagerProxy));
 
         // Deploy IntentsEngine
@@ -78,7 +91,8 @@ contract TradeExecutorTest is Test {
             TradeExecutor.initialize.selector,
             address(userManager),
             address(intentsEngine),
-            address(treasuryManager)
+            address(treasuryManager),
+            address(token)
         );
         ERC1967Proxy tradeExecutorProxy = new ERC1967Proxy(
             address(tradeExecutorImpl),
@@ -95,11 +109,6 @@ contract TradeExecutorTest is Test {
         vm.prank(intentsEngine.owner());
         intentsEngine.setTradeExecutor(address(tradeExecutor));
 
-        user1PrivateKey = 0xA11CE;
-        user2PrivateKey = 0xB0B;
-        user1 = vm.addr(user1PrivateKey);
-        user2 = vm.addr(user2PrivateKey);
-
         // Ensure the test contract has enough tokens
         token.transfer(address(this), 1_000_000 * 10 ** 18);
 
@@ -109,10 +118,45 @@ contract TradeExecutorTest is Test {
         // Deposit tokens for users
         depositTokens(user1, user1PrivateKey, 10_000 * 10 ** 18);
         depositTokens(user2, user2PrivateKey, 10_000 * 10 ** 18);
+        depositTokens(powerTrade, powerTradePrivateKey, 1_000 * 10 ** 18);
 
-        // Submit intents for users
-        submitIntent(user1, 500 * 10 ** 18, "BUY");
-        submitIntent(user2, 500 * 10 ** 18, "SELL");
+        // Submit intents for users with powerTrade address
+        submitIntentCall(user1, 50 * 10 ** 18, "BUY", bytes("test"),powerTrade);
+        submitIntentCall(user2, 50 * 10 ** 18, "SELL", bytes("test"),powerTrade);
+    }
+
+    function _getPermitTypedDataHash(
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        address spender
+    ) internal view returns (bytes32) {
+        bytes32 PERMIT_TRANSFER_FROM_TYPEHASH = keccak256(
+            "PermitTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline)TokenPermissions(address token,uint256 amount)"
+        );
+
+        bytes32 tokenPermissionsHash = keccak256(
+            abi.encode(
+                keccak256("TokenPermissions(address token,uint256 amount)"),
+                permit.permitted.token,
+                permit.permitted.amount
+            )
+        );
+
+        bytes32 structHash = keccak256(
+            abi.encode(
+                PERMIT_TRANSFER_FROM_TYPEHASH,
+                tokenPermissionsHash,
+                spender,
+                permit.nonce,
+                permit.deadline
+            )
+        );
+
+        bytes32 DOMAIN_SEPARATOR = permit2.DOMAIN_SEPARATOR();
+
+        return
+            keccak256(
+                abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, structHash)
+            );
     }
 
     function depositTokens(
@@ -121,58 +165,59 @@ contract TradeExecutorTest is Test {
         uint256 amount
     ) internal {
         uint256 deadline = block.timestamp + 1 hours;
-        uint48 nonce = 0;
 
-        IAllowanceTransfer.PermitDetails memory details = IAllowanceTransfer
-            .PermitDetails({
-                token: address(token),
-                amount: uint160(amount),
-                expiration: uint48(deadline),
-                nonce: nonce
+        ISignatureTransfer.PermitTransferFrom memory permit = ISignatureTransfer
+            .PermitTransferFrom({
+                permitted: ISignatureTransfer.TokenPermissions({
+                    token: address(token),
+                    amount: amount
+                }),
+                nonce: nonce, // Use the current nonce
+                deadline: deadline
             });
 
-        IAllowanceTransfer.PermitSingle memory permitSingle = IAllowanceTransfer
-            .PermitSingle({
-                details: details,
-                spender: address(userManager),
-                sigDeadline: deadline
-            });
+        ISignatureTransfer.SignatureTransferDetails
+            memory transferDetails = ISignatureTransfer
+                .SignatureTransferDetails({
+                    to: address(userManager),
+                    requestedAmount: amount
+                });
 
-        bytes32 digest = keccak256(
-            abi.encodePacked(
-                "\x19\x01",
-                permit2.DOMAIN_SEPARATOR(),
-                PermitHash.hash(permitSingle)
-            )
-        );
+        bytes32 digest = _getPermitTypedDataHash(permit, address(userManager));
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
         bytes memory signature = abi.encodePacked(r, s, v);
 
+        bytes memory permitTransferFrom = abi.encode(address(token), amount);
+
         vm.startPrank(user);
         token.approve(address(permit2), type(uint256).max);
         userManager.permitDeposit(
-            uint160(amount),
+            amount,
             deadline,
             nonce,
-            signature,
-            ""
+            permitTransferFrom,
+            signature
         );
         vm.stopPrank();
+
+        nonce++; // Increment the nonce after each deposit
     }
 
-    function submitIntent(
+    function submitIntentCall(
         address user,
         uint256 amount,
-        string memory intentType
+        string memory intentType,
+        bytes memory metadata,
+        address _powerTrade
     ) internal {
         vm.prank(user);
-        intentsEngine.submitIntent(amount, intentType, bytes("test"));
+        intentsEngine.submitIntent(amount, intentType, metadata, _powerTrade);
     }
 
     function testSettleIntent() public {
         vm.prank(tradeExecutor.owner());
-        tradeExecutor.settleIntent(user1, 0, 50 * 10 ** 18);
+        tradeExecutor.settleIntent(user1, 0, 50 * 10 ** 18, powerTrade);
 
         (uint256 availableBalance, uint256 lockedBalance) = userManager
             .getUserBalance(user1);
@@ -199,7 +244,7 @@ contract TradeExecutorTest is Test {
         pnls[1] = -25 * 10 ** 18;
 
         vm.prank(tradeExecutor.owner());
-        tradeExecutor.batchSettleIntents(users, intentIndices, pnls);
+        tradeExecutor.batchSettleIntents(users, intentIndices, pnls, powerTrade);
 
         (uint256 user1Balance, uint256 user1LockedBalance) = userManager
             .getUserBalance(user1);
@@ -222,7 +267,7 @@ contract TradeExecutorTest is Test {
 
     function testFailSettleIntentNonOwner() public {
         vm.prank(user2);
-        tradeExecutor.settleIntent(user1, 0, 50 * 10 ** 18);
+        tradeExecutor.settleIntent(user1, 0, 50 * 10 ** 18, powerTrade);
     }
 
     function testFailBatchSettleIntentsNonOwner() public {
@@ -236,18 +281,18 @@ contract TradeExecutorTest is Test {
         pnls[0] = 50 * 10 ** 18;
 
         vm.prank(user2);
-        tradeExecutor.batchSettleIntents(users, intentIndices, pnls);
+        tradeExecutor.batchSettleIntents(users, intentIndices, pnls, powerTrade);
     }
 
     function testFailSettleIntentInvalidIndex() public {
         vm.prank(tradeExecutor.owner());
-        tradeExecutor.settleIntent(user1, 1, 50 * 10 ** 18);
+        tradeExecutor.settleIntent(user1, 1, 50 * 10 ** 18, powerTrade);
     }
 
     function testFailSettleExecutedIntent() public {
         vm.startPrank(tradeExecutor.owner());
-        tradeExecutor.settleIntent(user1, 0, 50 * 10 ** 18);
-        tradeExecutor.settleIntent(user1, 0, 50 * 10 ** 18);
+        tradeExecutor.settleIntent(user1, 0, 50 * 10 ** 18, powerTrade);
+        tradeExecutor.settleIntent(user1, 0, 50 * 10 ** 18, powerTrade);
         vm.stopPrank();
     }
 
@@ -264,7 +309,7 @@ contract TradeExecutorTest is Test {
         pnls[0] = 50 * 10 ** 18;
 
         vm.prank(tradeExecutor.owner());
-        tradeExecutor.batchSettleIntents(users, intentIndices, pnls);
+        tradeExecutor.batchSettleIntents(users, intentIndices, pnls, powerTrade);
     }
 
     function testFailBatchSettleIntentsExceedMaxBatchSize() public {
@@ -279,6 +324,53 @@ contract TradeExecutorTest is Test {
         }
 
         vm.prank(tradeExecutor.owner());
-        tradeExecutor.batchSettleIntents(users, intentIndices, pnls);
+        tradeExecutor.batchSettleIntents(users, intentIndices, pnls, powerTrade);
+    }
+
+    function testSettleIntentRepayFundsFromPowerTrade() public {
+        uint256 intentAmount = 150 * 10 ** 18; // Amount greater than threshold (100)
+        submitIntentCall(user1, intentAmount, "BUY", bytes("test"),powerTrade);
+
+        // Check that the funds were transferred to powerTrade
+        uint256 powerTradeInitialBalance = token.balanceOf(powerTrade);
+        assertEq(powerTradeInitialBalance, intentAmount);
+
+        // Simulate powerTrade approving TradeExecutor to spend tokens
+        vm.prank(powerTrade);
+        token.approve(address(tradeExecutor), type(uint256).max);
+
+        // Settle the intent with a profit
+        vm.prank(tradeExecutor.owner());
+        tradeExecutor.settleIntent(user1, 1, 50 * 10 ** 18, powerTrade);
+
+        // Check that the user's balance is updated correctly
+        (uint256 availableBalance, uint256 lockedBalance) = userManager.getUserBalance(user1);
+        assertEq(availableBalance, 9900 * 10 ** 18); // Initial - intentAmount + profit
+        assertEq(lockedBalance, 0);
+
+        // Check powerTrade's final balance
+        uint256 powerTradeFinalBalance = token.balanceOf(powerTrade);
+        assertEq(powerTradeFinalBalance, 0);
+    }
+
+    function testSettleIntentDoesNotRepayIfAmountIsBelowThreshold() public {
+        uint256 intentAmount = 50 * 10 ** 18; // Amount below threshold (100)
+        submitIntentCall(user1, intentAmount, "BUY", bytes("test"),powerTrade);
+
+        // Check that no funds were transferred to powerTrade
+        uint256 powerTradeBalance = token.balanceOf(powerTrade);
+        assertEq(powerTradeBalance, 1000 * 10 ** 18);
+
+        // Settle the intent with a profit
+        vm.prank(tradeExecutor.owner());
+        tradeExecutor.settleIntent(user1, 0, 50 * 10 ** 18, powerTrade);
+
+        // Check that the user's balance is updated correctly
+        (uint256 availableBalance, uint256 lockedBalance) = userManager.getUserBalance(user1);
+        assertEq(availableBalance, 10050 * 10 ** 18); // Initial + profit
+        assertEq(lockedBalance, 0);
+
+        // Verify powerTrade balance hasn't changed
+        assertEq(token.balanceOf(powerTrade), 0);
     }
 }

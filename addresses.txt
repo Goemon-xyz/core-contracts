@@ -1,0 +1,19 @@
+address tokenAddress = 0x81778d52EBd0CC38BC84B8Ec15051ade2EEAc814;
+address permit2Address = 0xFb890A782737F5Fc06bCF868306905501c5C3A80;
+address treasuryAddress = 0x4665badb4b4734AfADFa28125432062d9e859089;
+
+UserManager deployed to: 0x59B965027197bC3eb367e51D556983D4efC4dcc4
+IntentsEngine deployed to: 0x0A3Ae72501b4e07414B1c8DEC56C792B989820E3
+TradeExecutor deployed to: 0x43cAaB13F1f60954D56F273304A002825ECB8C16
+TreasuryManager deployed to: 0xeF925627E290777542F14BACF30E04880f34290f
+
+verify commands
+
+# Verify UserManager contract
+forge verify-contract --chain-id 97 --etherscan-api-key 2MF767V6G89GI11HGZTZCB69A6XHDC5AMB 0x59B965027197bC3eb367e51D556983D4efC4dcc4 src/UserManager.sol:UserManager
+
+# Verify IntentsEngine contract
+forge verify-contract --chain-id 97 --etherscan-api-key 2MF767V6G89GI11HGZTZCB69A6XHDC5AMB 0x0A3Ae72501b4e07414B1c8DEC56C792B989820E3 src/IntentsEngine.sol:IntentsEngine
+
+# Verify TradeExecutor contract
+forge verify-contract --chain-id 97 --etherscan-api-key 2MF767V6G89GI11HGZTZCB69A6XHDC5AMB 0x43cAaB13F1f60954D56F273304A002825ECB8C16 src/TradeExecutor.sol:TradeExecutor

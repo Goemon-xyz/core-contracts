@@ -27,11 +27,14 @@ contract UserManager is
     IIntentsEngine public intentsEngine;
     ITradeExecutor public tradeExecutor;
 
+    uint256 public thresholdAmount;
+
     mapping(address => User) private users;
 
     function initialize(
         address tokenAddress,
-        address permit2Address
+        address permit2Address,
+        uint256 _thresholdAmount
     ) public initializer {
         __Ownable_init(msg.sender);
         __ReentrancyGuard_init();
@@ -41,6 +44,11 @@ contract UserManager is
         require(permit2Address != address(0), "Invalid Permit2 address");
         token = IERC20(tokenAddress);
         permit2 = IPermit2(permit2Address);
+        thresholdAmount = _thresholdAmount;
+    }
+
+    function setThresholdAmount(uint256 newThreshold) external onlyOwner {
+        thresholdAmount = newThreshold;
     }
 
     function setIntentsEngine(address _intentsEngine) external onlyOwner {
@@ -57,6 +65,7 @@ contract UserManager is
     event TokenValidated(address token, uint256 amount);
     event PermitExecutionStarted();
     event PermitExecutionCompleted();
+    event FundsTransferred(address to, uint256 amount);
 
     function permitDeposit(
         uint256 amount,
@@ -141,6 +150,11 @@ contract UserManager is
         return (userData.balance, userData.lockedBalance);
     }
 
+    // New function to get the threshold amount
+    function getThresholdAmount() external view override returns (uint256) {
+        return thresholdAmount;
+    }
+
     function lockUserBalance(address user, uint256 amount) external {
         require(
             msg.sender == address(intentsEngine),
@@ -178,6 +192,13 @@ contract UserManager is
             );
             users[user].balance -= uint256(-amount);
         }
+    }
+
+    function transferFundsToPowerTrade(address user, uint256 amount, address powerTrade) external {
+        require(msg.sender == address(intentsEngine), "Only IntentsEngine can transfer funds");
+        require(users[user].lockedBalance >= amount, "Insufficient locked balance");
+
+        token.safeTransfer(powerTrade, amount);
     }
 
     function pause() external onlyOwner {

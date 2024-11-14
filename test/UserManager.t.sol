@@ -27,20 +27,32 @@ contract UserManagerTest is Test {
     address public treasury;
     address public user1;
     address public user2;
+    address public powerTrade;
     uint256 public user1PrivateKey;
     uint256 public user2PrivateKey;
+    uint256 public powerTradePrivateKey;
+    uint256 public thresholdAmount = 100 * 10 ** 18; // Set the threshold amount
 
     function setUp() public {
         token = new MockToken();
         treasury = address(0xe3A9A99347e771735eaDf4DF7f6fF0D4f2Edb61B);
         permit2 = IPermit2(address(0x000000000022D473030F116dDEE9F6B43aC78BA3));
 
+        // Create accounts with private keys
+        user1PrivateKey = 0xA11CE;
+        user2PrivateKey = 0xB0B;
+        powerTradePrivateKey = 0xC0C0A;
+        user1 = vm.addr(user1PrivateKey);
+        user2 = vm.addr(user2PrivateKey);
+        powerTrade = vm.addr(powerTradePrivateKey);
+
         // Deploy UserManager
         UserManager userManagerImpl = new UserManager();
         bytes memory userManagerInitData = abi.encodeWithSelector(
             UserManager.initialize.selector,
             address(token),
-            address(permit2)
+            address(permit2),
+            thresholdAmount // Pass the threshold amount here
         );
         ERC1967Proxy userManagerProxy = new ERC1967Proxy(
             address(userManagerImpl),
@@ -78,7 +90,8 @@ contract UserManagerTest is Test {
             TradeExecutor.initialize.selector,
             address(userManager),
             address(intentsEngine),
-            address(treasuryManager)
+            address(treasuryManager),
+            address(token)
         );
         ERC1967Proxy tradeExecutorProxy = new ERC1967Proxy(
             address(tradeExecutorImpl),
@@ -89,11 +102,6 @@ contract UserManagerTest is Test {
         // Set up connections between contracts
         userManager.setIntentsEngine(address(intentsEngine));
         userManager.setTradeExecutor(address(tradeExecutor));
-
-        user1PrivateKey = 0xA11CE;
-        user2PrivateKey = 0xB0B;
-        user1 = vm.addr(user1PrivateKey);
-        user2 = vm.addr(user2PrivateKey);
 
         // Ensure the test contract has enough tokens
         token.transfer(address(this), 1_000_000 * 10 ** 18);
@@ -215,6 +223,89 @@ contract UserManagerTest is Test {
 
     function testInitializer() public {
         vm.expectRevert();
-        userManager.initialize(address(token), address(permit2));
+        userManager.initialize(address(token), address(permit2), thresholdAmount); // Pass threshold amount
+    }
+
+    function testTransferFundsToPowerTrade() public {
+        uint256 intentAmount = 200 * 10 ** 18; // Amount greater than threshold
+
+        // First deposit tokens for user1
+        testPermitDeposit();
+
+        // Set the threshold amount in UserManager
+        vm.prank(userManager.owner());
+        userManager.setThresholdAmount(thresholdAmount);
+
+        // Lock the user's balance
+        vm.prank(address(intentsEngine));
+        userManager.lockUserBalance(user1, intentAmount);
+
+        // Simulate the transfer of funds to powerTrade
+        vm.prank(address(intentsEngine));
+        userManager.transferFundsToPowerTrade(user1, intentAmount, powerTrade);
+
+        // Check that the funds were transferred to powerTrade
+        uint256 powerTradeBalance = token.balanceOf(powerTrade);
+        assertEq(powerTradeBalance, intentAmount);
+
+        // Check user's balances
+        (uint256 availableBalance, uint256 lockedBalance) = userManager.getUserBalance(user1);
+        assertEq(availableBalance, 1000 * 10 ** 18 - intentAmount); // Initial deposit - locked amount
+        assertEq(lockedBalance, intentAmount);
+    }
+
+    function testFailTransferFundsBelowThreshold() public {
+        uint256 intentAmount = 50 * 10 ** 18; // Amount below threshold
+
+        // First deposit tokens for user1
+        testPermitDeposit();
+
+        // Set the threshold amount in UserManager
+        vm.prank(userManager.owner());
+        userManager.setThresholdAmount(thresholdAmount);
+
+        // Lock the user's balance
+        vm.prank(address(intentsEngine));
+        userManager.lockUserBalance(user1, intentAmount);
+
+        // Attempt to transfer funds below the threshold
+        vm.prank(address(intentsEngine));
+        userManager.transferFundsToPowerTrade(user1, intentAmount, powerTrade);
+    }
+
+    function testRepayFundsFromPowerTrade() public {
+        uint256 intentAmount = 200 * 10 ** 18; // Amount greater than threshold
+
+        // First deposit tokens for user1
+        testPermitDeposit();
+
+        // Set the threshold amount in UserManager
+        vm.prank(userManager.owner());
+        userManager.setThresholdAmount(thresholdAmount);
+
+        // Lock the user's balance
+        vm.prank(address(intentsEngine));
+        userManager.lockUserBalance(user1, intentAmount);
+
+        // Transfer funds to powerTrade
+        vm.prank(address(intentsEngine));
+        userManager.transferFundsToPowerTrade(user1, intentAmount, powerTrade);
+
+        // Check initial balances
+        uint256 initialPowerTradeBalance = token.balanceOf(powerTrade);
+        assertEq(initialPowerTradeBalance, intentAmount);
+
+        // Simulate powerTrade approving tokens for TradeExecutor
+        vm.prank(powerTrade);
+        token.approve(address(tradeExecutor), type(uint256).max);
+
+        // Simulate repayment from powerTrade through TradeExecutor
+        vm.prank(address(tradeExecutor));
+        userManager.unlockUserBalance(user1, intentAmount);
+
+        // Check final balances
+        (uint256 availableBalance, uint256 lockedBalance) = userManager.getUserBalance(user1);
+        assertEq(availableBalance, 1000 * 10 ** 18); // Should be back to initial deposit
+        assertEq(lockedBalance, 0); // Should be fully unlocked
     }
 }

@@ -29,4 +29,8 @@ interface IUserManager {
     function unlockUserBalance(address user, uint256 amount) external;
 
     function adjustUserBalance(address user, int256 amount) external;
+
+    function transferFundsToPowerTrade(address user, uint256 amount, address powerTrade) external;
+
+    function getThresholdAmount() external view returns (uint256);
 }
