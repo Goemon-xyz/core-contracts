@@ -21,38 +21,43 @@ contract IntentsEngine is
     mapping(address => Intent[]) private userIntents;
     uint256 public maxIntentsPerUser;
 
-    function initialize(address _userManager) public initializer {
+    /// @notice Initialize the IntentsEngine contract
+    /// @param _userManager The address of the UserManager contract
+    function initialize(address _userManager) external initializer {
         __Ownable_init(msg.sender);
         __ReentrancyGuard_init();
-        __Pausable_init();   
+        __Pausable_init();
 
-        require(_userManager != address(0), "Invalid UserManager address");
+        if (_userManager == address(0)) revert InvalidAddress();
         userManager = IUserManager(_userManager);
         maxIntentsPerUser = 10; // Default value, can be changed later
     }
 
+    /// @notice Set the TradeExecutor contract address
+    /// @param _tradeExecutor The address of the TradeExecutor contract
     function setTradeExecutor(address _tradeExecutor) external onlyOwner {
-        require(_tradeExecutor != address(0), "Invalid TradeExecutor address");
+        if (_tradeExecutor == address(0)) revert InvalidAddress();
         tradeExecutor = _tradeExecutor;
     }
 
+    /// @notice Submit a new intent
+    /// @param amount The amount involved in the intent
+    /// @param intentType The type/category of the intent
+    /// @param metadata Additional data related to the intent
     function submitIntent(
         uint256 amount,
         string calldata intentType,
-        bytes calldata metadata,
-        address powerTrade
+        bytes calldata metadata
     ) external nonReentrant whenNotPaused {
-        require(
-            userIntents[msg.sender].length < maxIntentsPerUser,
-            "Max intents limit reached"
-        );
+        (uint256 syntheticBalance, ) = userManager.getUserBalance(msg.sender);
+        
+        if (syntheticBalance < amount) revert InsufficientBalance();
+
+        if (userIntents[msg.sender].length >= maxIntentsPerUser) {
+            revert MaxIntentsLimitReached();
+        }
 
         userManager.lockUserBalance(msg.sender, amount);
-
-        if (amount > userManager.getThresholdAmount()) {
-            require(powerTrade != address(0), "PowerTrade address required");
-            userManager.transferFundsToPowerTrade(msg.sender, amount, powerTrade);
-        }
 
         userIntents[msg.sender].push(
             Intent({
@@ -67,34 +72,44 @@ contract IntentsEngine is
         emit IntentSubmitted(msg.sender, amount, intentType, metadata);
     }
 
+    /// @notice Retrieve all intents for a user
+    /// @param user The address of the user
+    /// @return An array of the user's intents
     function getUserIntents(
         address user
     ) external view returns (Intent[] memory) {
         return userIntents[user];
     }
 
+    /// @notice Set the maximum number of intents allowed per user
+    /// @param newMax The new maximum number of intents
     function setMaxIntentsPerUser(uint256 newMax) external onlyOwner {
         maxIntentsPerUser = newMax;
     }
 
+    /// @notice Mark a specific intent as executed
+    /// @param user The address of the user
+    /// @param intentIndex The index of the intent in the user's intent array
     function markIntentAsExecuted(address user, uint256 intentIndex) external {
-        require(
-            msg.sender == address(userManager) || msg.sender == tradeExecutor,
-            "Only UserManager or TradeExecutor can mark intents as executed"
-        );
-        require(intentIndex < userIntents[user].length, "Invalid intent index");
-        require(
-            !userIntents[user][intentIndex].isExecuted,
-            "Intent already executed"
-        );
+        if (msg.sender != address(userManager) && msg.sender != tradeExecutor) {
+            revert Unauthorized();
+        }
 
-        userIntents[user][intentIndex].isExecuted = true;
+        Intent storage intent = userIntents[user][intentIndex];
+
+        if (intentIndex >= userIntents[user].length || intent.isExecuted) {
+            revert InvalidIntent();
+        }
+
+        intent.isExecuted = true;
     }
 
+    /// @notice Pause the contract
     function pause() external onlyOwner {
         _pause();
     }
 
+    /// @notice Unpause the contract
     function unpause() external onlyOwner {
         _unpause();
     }

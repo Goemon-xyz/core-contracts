@@ -7,7 +7,6 @@ import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "permit2/src/interfaces/IPermit2.sol";
 import "permit2/src/interfaces/ISignatureTransfer.sol";
 import "./interfaces/IUserManager.sol";
 import "./interfaces/IIntentsEngine.sol";
@@ -27,46 +26,48 @@ contract UserManager is
     IIntentsEngine public intentsEngine;
     ITradeExecutor public tradeExecutor;
 
-    uint256 public thresholdAmount;
-
     mapping(address => User) private users;
 
+    int256 public contractBalanceDiff;
+
+    /// @notice Initialize the UserManager contract
+    /// @param tokenAddress The address of the real token (e.g., USDC)
+    /// @param permit2Address The address of the Permit2 contract
     function initialize(
         address tokenAddress,
-        address permit2Address,
-        uint256 _thresholdAmount
-    ) public initializer {
+        address permit2Address
+    ) external initializer {
         __Ownable_init(msg.sender);
         __ReentrancyGuard_init();
         __Pausable_init();
 
-        require(tokenAddress != address(0), "Invalid token address");
-        require(permit2Address != address(0), "Invalid Permit2 address");
+        if (tokenAddress == address(0)) revert InvalidToken();
+        if (permit2Address == address(0)) revert InvalidToken();
+
         token = IERC20(tokenAddress);
-        permit2 = IPermit2(permit2Address);
-        thresholdAmount = _thresholdAmount;
+        permit2 = ISignatureTransfer(permit2Address);
     }
 
-    function setThresholdAmount(uint256 newThreshold) external onlyOwner {
-        thresholdAmount = newThreshold;
-    }
-
+    /// @notice Set the IntentsEngine contract address
+    /// @param _intentsEngine The address of the IntentsEngine contract
     function setIntentsEngine(address _intentsEngine) external onlyOwner {
-        require(_intentsEngine != address(0), "Invalid IntentsEngine address");
+        if (_intentsEngine == address(0)) revert InvalidToken();
         intentsEngine = IIntentsEngine(_intentsEngine);
     }
 
+    /// @notice Set the TradeExecutor contract address
+    /// @param _tradeExecutor The address of the TradeExecutor contract
     function setTradeExecutor(address _tradeExecutor) external onlyOwner {
-        require(_tradeExecutor != address(0), "Invalid TradeExecutor address");
+        if (_tradeExecutor == address(0)) revert InvalidToken();
         tradeExecutor = ITradeExecutor(_tradeExecutor);
     }
 
-    event PermitDataReceived(uint256 amount, uint256 deadline, uint256 nonce);
-    event TokenValidated(address token, uint256 amount);
-    event PermitExecutionStarted();
-    event PermitExecutionCompleted();
-    event FundsTransferred(address to, uint256 amount);
-
+    /// @notice Deposit tokens using Permit2 and convert to synthetic balance (pUSDC)
+    /// @param amount The amount to deposit
+    /// @param deadline The permit deadline
+    /// @param nonce The permit nonce
+    /// @param permitTransferFrom The permit transfer details
+    /// @param signature The permit signature
     function permitDeposit(
         uint256 amount,
         uint256 deadline,
@@ -74,19 +75,17 @@ contract UserManager is
         bytes calldata permitTransferFrom,
         bytes calldata signature
     ) external nonReentrant whenNotPaused {
-        emit PermitDataReceived(amount, deadline, nonce);
-        require(block.timestamp <= deadline, "Permit expired");
+        if (block.timestamp > deadline) revert PermitExpired();
 
         (address permittedToken, uint256 permitAmount) = abi.decode(
             permitTransferFrom,
             (address, uint256)
         );
 
-        emit TokenValidated(permittedToken, permitAmount);
-        require(permittedToken == address(token), "Invalid token");
-        require(permitAmount == amount, "Amount mismatch");
+        if (permittedToken != address(token)) revert InvalidToken();
+        if (permitAmount != amount) revert AmountMismatch();
 
-        emit PermitExecutionStarted();
+        // Perform Permit2 transfer
         try
             permit2.permitTransferFrom(
                 ISignatureTransfer.PermitTransferFrom({
@@ -105,107 +104,124 @@ contract UserManager is
                 signature
             )
         {
-            users[msg.sender].balance += amount;
-            emit PermitExecutionCompleted();
+            users[msg.sender].syntheticBalance += amount;
+            contractBalanceDiff += int256(amount);
             emit Deposit(msg.sender, amount);
-        } catch Error(string memory reason) {
-            revert(
-                string(abi.encodePacked("Permit2 transfer failed: ", reason))
-            );
-        } catch (bytes memory lowLevelData) {
-            revert(
-                string(
-                    abi.encodePacked(
-                        "Permit2 transfer failed: ",
-                        _toHex(lowLevelData)
-                    )
-                )
-            );
+        } catch {
+            revert PermitTransferFailed();
         }
     }
 
-    function _toHex(bytes memory data) internal pure returns (string memory) {
-        bytes memory alphabet = "0123456789abcdef";
-        bytes memory str = new bytes(2 + data.length * 2);
-        str[0] = "0";
-        str[1] = "x";
-        for (uint i = 0; i < data.length; i++) {
-            str[2 + i * 2] = alphabet[uint(uint8(data[i] >> 4))];
-            str[3 + i * 2] = alphabet[uint(uint8(data[i] & 0x0f))];
-        }
-        return string(str);
-    }
-
+    /// @notice Withdraw real tokens by converting synthetic balance (pUSDC) back to USDC
+    /// @param amount The amount to withdraw
     function withdraw(uint256 amount) external nonReentrant whenNotPaused {
-        require(users[msg.sender].balance >= amount, "Insufficient balance");
-        users[msg.sender].balance -= amount;
+        User storage user = users[msg.sender];
+
+        if (user.syntheticBalance < amount) revert InsufficientBalance();
+
+        unchecked {
+            user.syntheticBalance -= amount;
+            contractBalanceDiff -= int256(amount);
+        }
+
         token.safeTransfer(msg.sender, amount);
         emit Withdraw(msg.sender, amount);
     }
 
+    /// @notice Get the balance of a user
+    /// @param user The address of the user
+    /// @return syntheticBalance The synthetic balance (pUSDC)
+    /// @return lockedBalance The locked balance
     function getUserBalance(
         address user
-    ) external view returns (uint256 availableBalance, uint256 lockedBalance) {
+    ) external view returns (uint256 syntheticBalance, uint256 lockedBalance) {
         User storage userData = users[user];
-        return (userData.balance, userData.lockedBalance);
+        return (userData.syntheticBalance, userData.lockedBalance);
     }
 
-    // New function to get the threshold amount
-    function getThresholdAmount() external view override returns (uint256) {
-        return thresholdAmount;
-    }
-
+    /// @notice Lock a user's synthetic balance for intents
+    /// @param user The address of the user
+    /// @param amount The amount to lock
     function lockUserBalance(address user, uint256 amount) external {
-        require(
-            msg.sender == address(intentsEngine),
-            "Only IntentsEngine can lock balance"
-        );
-        require(users[user].balance >= amount, "Insufficient balance");
-        users[user].balance -= amount;
-        users[user].lockedBalance += amount;
-    }
+        if (msg.sender != address(intentsEngine)) revert Unauthorized();
 
-    function unlockUserBalance(address user, uint256 amount) external {
-        require(
-            msg.sender == address(tradeExecutor),
-            "Only TradeExecutor can unlock balance"
-        );
-        require(
-            users[user].lockedBalance >= amount,
-            "Insufficient locked balance"
-        );
-        users[user].lockedBalance -= amount;
-        users[user].balance += amount;
-    }
+        User storage userData = users[user];
 
-    function adjustUserBalance(address user, int256 amount) external {
-        require(
-            msg.sender == address(tradeExecutor),
-            "Only TradeExecutor can adjust balance"
-        );
-        if (amount > 0) {
-            users[user].balance += uint256(amount);
-        } else {
-            require(
-                users[user].balance >= uint256(-amount),
-                "Insufficient balance"
-            );
-            users[user].balance -= uint256(-amount);
+        if (userData.syntheticBalance < amount) revert InsufficientBalance();
+
+        unchecked {
+            userData.syntheticBalance -= amount;
+            userData.lockedBalance += amount;
         }
     }
 
-    function transferFundsToPowerTrade(address user, uint256 amount, address powerTrade) external {
-        require(msg.sender == address(intentsEngine), "Only IntentsEngine can transfer funds");
-        require(users[user].lockedBalance >= amount, "Insufficient locked balance");
+    /// @notice Unlock a user's previously locked balance
+    /// @param user The address of the user
+    /// @param amount The amount to unlock
+    function unlockUserBalance(address user, uint256 amount) external {
+        if (msg.sender != address(tradeExecutor)) revert Unauthorized();
 
-        token.safeTransfer(powerTrade, amount);
+        User storage userData = users[user];
+
+        if (userData.lockedBalance < amount) revert InsufficientBalance();
+
+        unchecked {
+            userData.lockedBalance -= amount;
+            userData.syntheticBalance += amount;
+        }
     }
 
-    function pause() external onlyOwner {
-        _pause();
+    /// @notice Adjust a user's synthetic balance based on pnl
+    /// @param user The address of the user
+    /// @param amount The pnl amount to adjust (can be positive or negative)
+    function adjustUserBalance(address user, int256 amount) external {
+        if (msg.sender != address(tradeExecutor)) revert Unauthorized();
+
+        User storage userData = users[user];
+
+        if (amount > 0) {
+            userData.syntheticBalance += uint256(amount);
+            contractBalanceDiff -= amount;
+        } else {
+            uint256 absAmount = uint256(-amount);
+            if (userData.syntheticBalance < absAmount) revert InsufficientBalance();
+            userData.syntheticBalance -= absAmount;
+            contractBalanceDiff += amount; // amount is negative
+        }
+
+        emit BalanceAdjusted(user, amount);
     }
 
-    function unpause() external onlyOwner {
-        _unpause();
+    /// @notice Get the difference between real token and synthetic asset
+    /// @return The difference as an int256
+    function getContractBalanceDiff() external view returns (int256) {
+        return contractBalanceDiff;
+    }
+
+    /// @notice Repay the contract's balance difference
+    /// @param amount The amount to repay
+    function repayContractBalance(uint256 amount) external nonReentrant whenNotPaused {
+        if (contractBalanceDiff > 0) revert InvalidAmount();
+        
+        // Convert negative diff to positive for comparison
+        uint256 negativeDiff = uint256(-contractBalanceDiff);
+        if (amount > negativeDiff) revert InvalidAmount();
+
+        token.safeTransferFrom(msg.sender, address(this), amount);
+        contractBalanceDiff += int256(amount); // contractBalanceDiff is negative
+
+        emit ContractBalanceRepaid(msg.sender, amount);
+    }
+
+    /// @notice Withdraw excess real tokens when contractBalanceDiff is positive
+    /// @param amount The amount to withdraw
+    function withdrawExcessBalance(uint256 amount) external onlyOwner nonReentrant whenNotPaused {
+        if (contractBalanceDiff <= 0) revert InvalidAmount();
+        if (uint256(contractBalanceDiff) < amount) revert InvalidAmount();
+
+        contractBalanceDiff -= int256(amount);
+        token.safeTransfer(owner(), amount);
+
+        emit ExcessBalanceWithdrawn(amount);
     }
 }
