@@ -5,11 +5,9 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./interfaces/ITradeExecutor.sol";
 import "./interfaces/IUserManager.sol";
 import "./interfaces/IIntentsEngine.sol";
-import "./interfaces/ITreasuryManager.sol";
 
 contract TradeExecutor is
     ITradeExecutor,
@@ -20,43 +18,28 @@ contract TradeExecutor is
 {
     IUserManager public userManager;
     IIntentsEngine public intentsEngine;
-    ITreasuryManager public treasuryManager;
-    IERC20 public token;
 
     uint256 public constant MAX_BATCH_SIZE = 100;
-
-    using SafeERC20 for IERC20;
 
     // Custom Errors are now defined in the interface
 
     /// @notice Initialize the TradeExecutor contract
     /// @param _userManager The address of the UserManager contract
     /// @param _intentsEngine The address of the IntentsEngine contract
-    /// @param _treasuryManager The address of the TreasuryManager contract
-    /// @param _token The address of the ERC20 token (e.g., USDC)
     function initialize(
         address _userManager,
-        address _intentsEngine,
-        address _treasuryManager,
-        address _token
+        address _intentsEngine
     ) external initializer {
         __Ownable_init(msg.sender);
         __ReentrancyGuard_init();
         __Pausable_init();
 
-        if (
-            _userManager == address(0) ||
-            _intentsEngine == address(0) ||
-            _treasuryManager == address(0) ||
-            _token == address(0)
-        ) {
+        if (_userManager == address(0) || _intentsEngine == address(0)) {
             revert InvalidAddress();
         }
 
         userManager = IUserManager(_userManager);
         intentsEngine = IIntentsEngine(_intentsEngine);
-        treasuryManager = ITreasuryManager(_treasuryManager);
-        token = IERC20(_token);
     }
 
     /// @notice Settle a single intent
@@ -82,10 +65,7 @@ contract TradeExecutor is
     ) external onlyOwner nonReentrant whenNotPaused {
         uint256 length = allUsers.length;
 
-        if (
-            length != intentIndices.length ||
-            length != pnls.length
-        ) {
+        if (length != intentIndices.length || length != pnls.length) {
             revert ArrayLengthMismatch();
         }
 
@@ -118,16 +98,18 @@ contract TradeExecutor is
 
         uint256 lockedAmount = intents[intentIndex].amount;
 
+        // Unlock the user's locked balance
         userManager.unlockUserBalance(user, lockedAmount);
 
         int256 finalAmount = int256(lockedAmount) + pnl;
 
-        if (finalAmount < 0) {
-            revert FinalAmountNegative();
-        }
-
+        // Adjust the user's synthetic balance
         userManager.adjustUserBalance(user, finalAmount);
 
+        // Update the net PnL in UserManager
+        userManager.updateNetPnl(-pnl);
+
+        // Mark the intent as executed
         intentsEngine.markIntentAsExecuted(user, intentIndex);
 
         emit IntentSettled(user, intentIndex, pnl);

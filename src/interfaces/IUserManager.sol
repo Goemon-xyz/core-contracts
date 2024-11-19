@@ -11,38 +11,26 @@ interface IUserManager {
     event Deposit(address indexed user, uint256 amount);
     event Withdraw(address indexed user, uint256 amount);
     event BalanceAdjusted(address indexed user, int256 amount);
-    event ContractBalanceRepaid(address indexed repayer, uint256 amount);
-    event ExcessBalanceWithdrawn(uint256 amount);
+    event ExcessFundsWithdrawn(address indexed recipient, uint256 amount);
 
     // Custom Errors
     error InsufficientBalance();
     error InvalidAmount();
     error Unauthorized();
-    error AmountMismatch();
-    error PermitExpired();
     error InvalidToken();
-    error PermitTransferFailed();
+    error InsufficientExcessFunds();
+    error InvalidAddress();
 
     // Function Signatures
 
     /**
-     * @notice Deposit tokens using Permit2 and convert to synthetic balance (pUSDC)
+     * @notice Deposit synthetic balance
      * @param amount The amount to deposit
-     * @param deadline The permit deadline
-     * @param nonce The permit nonce
-     * @param permitTransferFrom The permit transfer details
-     * @param signature The permit signature
      */
-    function permitDeposit(
-        uint256 amount,
-        uint256 deadline,
-        uint256 nonce,
-        bytes calldata permitTransferFrom,
-        bytes calldata signature
-    ) external;
+    function deposit(uint256 amount) external;
 
     /**
-     * @notice Withdraw real tokens by converting synthetic balance (pUSDC) back to USDC
+     * @notice Withdraw synthetic balance
      * @param amount The amount to withdraw
      */
     function withdraw(uint256 amount) external;
@@ -50,7 +38,7 @@ interface IUserManager {
     /**
      * @notice Get the balance of a user
      * @param user The address of the user
-     * @return syntheticBalance The synthetic balance (pUSDC)
+     * @return syntheticBalance The synthetic balance
      * @return lockedBalance The locked balance
      */
     function getUserBalance(
@@ -79,20 +67,21 @@ interface IUserManager {
     function adjustUserBalance(address user, int256 amount) external;
 
     /**
-     * @notice Get the difference between real token and synthetic asset
-     * @return The difference as an int256
+     * @notice Update the net trade funds
+     * @param pnlChange The change in PnL to apply
      */
-    function getContractBalanceDiff() external view returns (int256);
+    function updateNetPnl(int256 pnlChange) external;
 
     /**
-     * @notice Repay the contract's balance difference
-     * @param amount The amount to repay
+     * @notice Withdraw excess synthetic funds as fees
+     * @param amount The amount of funds to withdraw
+     * @param recipient The address to receive the withdrawn funds
      */
-    function repayContractBalance(uint256 amount) external;
+    function withdrawExcessFunds(uint256 amount, address recipient) external;
 
     /**
-     * @notice Withdraw excess real tokens when contractBalanceDiff is positive
-     * @param amount The amount to withdraw
+     * @notice View the current net pnl
+     * @return The current net synthetic balance changes
      */
-    function withdrawExcessBalance(uint256 amount) external;
+    function viewNetPnl() external view returns (int256);
 }

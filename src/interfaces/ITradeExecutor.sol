@@ -37,4 +37,5 @@ interface ITradeExecutor {
         uint256[] calldata intentIndices,
         int256[] calldata pnls
     ) external;
+
 }

@@ -5,9 +5,7 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "permit2/src/interfaces/ISignatureTransfer.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol"; // Import the ERC20 interface
 import "./interfaces/IUserManager.sol";
 import "./interfaces/IIntentsEngine.sol";
 import "./interfaces/ITradeExecutor.sol";
@@ -19,33 +17,22 @@ contract UserManager is
     ReentrancyGuardUpgradeable,
     PausableUpgradeable
 {
-    using SafeERC20 for IERC20;
-
-    IERC20 public token;
-    ISignatureTransfer public permit2;
     IIntentsEngine public intentsEngine;
     ITradeExecutor public tradeExecutor;
+    IERC20 public token; // Declare the token interface
+    int256 public netPnl; // Track net synthetic balance changes
 
     mapping(address => User) private users;
 
-    int256 public contractBalanceDiff;
-
     /// @notice Initialize the UserManager contract
-    /// @param tokenAddress The address of the real token (e.g., USDC)
-    /// @param permit2Address The address of the Permit2 contract
-    function initialize(
-        address tokenAddress,
-        address permit2Address
-    ) external initializer {
+    /// @param _token The address of the ERC20 token contract
+    function initialize(address _token) external initializer {
         __Ownable_init(msg.sender);
         __ReentrancyGuard_init();
         __Pausable_init();
 
-        if (tokenAddress == address(0)) revert InvalidToken();
-        if (permit2Address == address(0)) revert InvalidToken();
-
-        token = IERC20(tokenAddress);
-        permit2 = ISignatureTransfer(permit2Address);
+        if (_token == address(0)) revert InvalidToken();
+        token = IERC20(_token); // Set the token address
     }
 
     /// @notice Set the IntentsEngine contract address
@@ -62,57 +49,35 @@ contract UserManager is
         tradeExecutor = ITradeExecutor(_tradeExecutor);
     }
 
-    /// @notice Deposit tokens using Permit2 and convert to synthetic balance (pUSDC)
-    /// @param amount The amount to deposit
-    /// @param deadline The permit deadline
-    /// @param nonce The permit nonce
-    /// @param permitTransferFrom The permit transfer details
-    /// @param signature The permit signature
-    function permitDeposit(
-        uint256 amount,
-        uint256 deadline,
-        uint256 nonce,
-        bytes calldata permitTransferFrom,
-        bytes calldata signature
-    ) external nonReentrant whenNotPaused {
-        if (block.timestamp > deadline) revert PermitExpired();
-
-        (address permittedToken, uint256 permitAmount) = abi.decode(
-            permitTransferFrom,
-            (address, uint256)
-        );
-
-        if (permittedToken != address(token)) revert InvalidToken();
-        if (permitAmount != amount) revert AmountMismatch();
-
-        // Perform Permit2 transfer
-        try
-            permit2.permitTransferFrom(
-                ISignatureTransfer.PermitTransferFrom({
-                    permitted: ISignatureTransfer.TokenPermissions({
-                        token: permittedToken,
-                        amount: amount
-                    }),
-                    nonce: nonce,
-                    deadline: deadline
-                }),
-                ISignatureTransfer.SignatureTransferDetails({
-                    to: address(this),
-                    requestedAmount: amount
-                }),
-                msg.sender,
-                signature
-            )
-        {
-            users[msg.sender].syntheticBalance += amount;
-            contractBalanceDiff += int256(amount);
-            emit Deposit(msg.sender, amount);
-        } catch {
-            revert PermitTransferFailed();
-        }
+    /// @notice Update the net PnL
+    /// @param pnlChange The change in PnL to apply
+    function updateNetPnl(int256 pnlChange) external {
+        if (msg.sender != address(tradeExecutor)) revert Unauthorized();
+        netPnl += pnlChange;
     }
 
-    /// @notice Withdraw real tokens by converting synthetic balance (pUSDC) back to USDC
+    /// @notice Pause the contract
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /// @notice Unpause the contract
+    function unpause() external onlyOwner {
+        _unpause();
+    }
+
+    /// @notice Deposit synthetic balance
+    /// @param amount The amount to deposit
+    function deposit(uint256 amount) external nonReentrant whenNotPaused {
+        // Check the real token balance of the sender
+        uint256 senderBalance = token.balanceOf(msg.sender);
+        if (senderBalance < amount) revert InsufficientBalance();
+
+        users[msg.sender].syntheticBalance += amount;
+        emit Deposit(msg.sender, amount);
+    }
+
+    /// @notice Withdraw synthetic balance
     /// @param amount The amount to withdraw
     function withdraw(uint256 amount) external nonReentrant whenNotPaused {
         User storage user = users[msg.sender];
@@ -121,16 +86,14 @@ contract UserManager is
 
         unchecked {
             user.syntheticBalance -= amount;
-            contractBalanceDiff -= int256(amount);
         }
 
-        token.safeTransfer(msg.sender, amount);
         emit Withdraw(msg.sender, amount);
     }
 
     /// @notice Get the balance of a user
     /// @param user The address of the user
-    /// @return syntheticBalance The synthetic balance (pUSDC)
+    /// @return syntheticBalance The synthetic balance
     /// @return lockedBalance The locked balance
     function getUserBalance(
         address user
@@ -181,47 +144,34 @@ contract UserManager is
 
         if (amount > 0) {
             userData.syntheticBalance += uint256(amount);
-            contractBalanceDiff -= amount;
         } else {
             uint256 absAmount = uint256(-amount);
             if (userData.syntheticBalance < absAmount) revert InsufficientBalance();
             userData.syntheticBalance -= absAmount;
-            contractBalanceDiff += amount; // amount is negative
         }
 
         emit BalanceAdjusted(user, amount);
     }
 
-    /// @notice Get the difference between real token and synthetic asset
-    /// @return The difference as an int256
-    function getContractBalanceDiff() external view returns (int256) {
-        return contractBalanceDiff;
+    /// @notice Withdraw excess synthetic funds as fees
+    /// @param amount The amount of funds to withdraw
+    /// @param recipient The address to receive the withdrawn funds
+    function withdrawExcessFunds(uint256 amount, address recipient) external onlyOwner nonReentrant whenNotPaused {
+        if (netPnl < int256(amount)) {
+            revert InsufficientExcessFunds();
+        }
+        if (recipient == address(0)) {
+            revert InvalidAddress();
+        }
+        // transfer the requested amount to the recipient
+        netPnl -= int256(amount);
+
+        emit ExcessFundsWithdrawn(recipient, amount);
     }
 
-    /// @notice Repay the contract's balance difference
-    /// @param amount The amount to repay
-    function repayContractBalance(uint256 amount) external nonReentrant whenNotPaused {
-        if (contractBalanceDiff > 0) revert InvalidAmount();
-        
-        // Convert negative diff to positive for comparison
-        uint256 negativeDiff = uint256(-contractBalanceDiff);
-        if (amount > negativeDiff) revert InvalidAmount();
-
-        token.safeTransferFrom(msg.sender, address(this), amount);
-        contractBalanceDiff += int256(amount); // contractBalanceDiff is negative
-
-        emit ContractBalanceRepaid(msg.sender, amount);
-    }
-
-    /// @notice Withdraw excess real tokens when contractBalanceDiff is positive
-    /// @param amount The amount to withdraw
-    function withdrawExcessBalance(uint256 amount) external onlyOwner nonReentrant whenNotPaused {
-        if (contractBalanceDiff <= 0) revert InvalidAmount();
-        if (uint256(contractBalanceDiff) < amount) revert InvalidAmount();
-
-        contractBalanceDiff -= int256(amount);
-        token.safeTransfer(owner(), amount);
-
-        emit ExcessBalanceWithdrawn(amount);
+    /// @notice View the current net pnl
+    /// @return The current net synthetic balance changes
+    function viewNetPnl() external view returns (int256) {
+        return netPnl;
     }
 }
