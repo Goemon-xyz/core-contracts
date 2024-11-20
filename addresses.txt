@@ -2,7 +2,7 @@ address tokenAddress = 0x81778d52EBd0CC38BC84B8Ec15051ade2EEAc814;
 address permit2Address = 0xFb890A782737F5Fc06bCF868306905501c5C3A80;
 address treasuryAddress = 0x4665badb4b4734AfADFa28125432062d9e859089;
 
-UserManager deployed to: 0xe9996dda7637bE0649Aa1257429C7525BdE4d579  
+UserManager deployed to: 0x4382724E03c2c8b96BeF607aC1Ed9D0a57a7f6a9  
   IntentsEngine deployed to: 0x39E46DfEAf7E1679BE1b89ecc1cbe5bA98873377
   TradeExecutor deployed to: 0x1bBd061838002C9c451B97d9E6947B3AbcC4886E
 TreasuryManager deployed to: 0xeF925627E290777542F14BACF30E04880f34290f

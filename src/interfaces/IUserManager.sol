@@ -2,32 +2,45 @@
 pragma solidity ^0.8.26;
 
 interface IUserManager {
-    struct User {
-        uint256 syntheticBalance; // pUSDC balance
-        uint256 lockedBalance;
-    }
-
     // Events
     event Deposit(address indexed user, uint256 amount);
     event Withdraw(address indexed user, uint256 amount);
     event BalanceAdjusted(address indexed user, int256 amount);
-    event ExcessFundsWithdrawn(address indexed recipient, uint256 amount);
 
     // Custom Errors
     error InsufficientBalance();
     error InvalidAmount();
     error Unauthorized();
     error InvalidToken();
-    error InsufficientExcessFunds();
     error InvalidAddress();
+    error PermitExpired();
+    error AmountMismatch();
+    error PermitTransferFailed();
 
     // Function Signatures
 
     /**
-     * @notice Deposit synthetic balance
+     * @notice Deposit synthetic balance using permit
      * @param amount The amount to deposit
+     * @param deadline The permit deadline
+     * @param nonce The permit nonce
+     * @param permitTransferFrom The permit transfer details
+     * @param signature The permit signature
      */
-    function deposit(uint256 amount) external;
+    function permitDeposit(
+        uint256 amount,
+        uint256 deadline,
+        uint256 nonce,
+        bytes calldata permitTransferFrom,
+        bytes calldata signature
+    ) external;
+
+    /**
+     * @notice Update a user's balance based on pnl
+     * @param user The address of the user
+     * @param pnl The profit or loss to apply
+     */
+    function updateUserBalance(address user, int256 pnl) external;
 
     /**
      * @notice Withdraw synthetic balance
@@ -38,50 +51,24 @@ interface IUserManager {
     /**
      * @notice Get the balance of a user
      * @param user The address of the user
-     * @return syntheticBalance The synthetic balance
-     * @return lockedBalance The locked balance
+     * @return The user's balance
      */
-    function getUserBalance(
-        address user
-    ) external view returns (uint256 syntheticBalance, uint256 lockedBalance);
+    function getUserBalance(address user) external view returns (uint256);
 
     /**
-     * @notice Lock a user's synthetic balance for intents
-     * @param user The address of the user
-     * @param amount The amount to lock
+     * @notice Pause the contract
      */
-    function lockUserBalance(address user, uint256 amount) external;
+    function pause() external;
 
     /**
-     * @notice Unlock a user's previously locked balance
-     * @param user The address of the user
-     * @param amount The amount to unlock
+     * @notice Unpause the contract
      */
-    function unlockUserBalance(address user, uint256 amount) external;
+    function unpause() external;
 
     /**
-     * @notice Adjust a user's synthetic balance based on pnl
-     * @param user The address of the user
-     * @param amount The pnl amount to adjust (can be positive or negative)
+     * @notice Batch update users' balances based on pnl
+     * @param users The addresses of the users
+     * @param pnls The profits or losses to apply
      */
-    function adjustUserBalance(address user, int256 amount) external;
-
-    /**
-     * @notice Update the net trade funds
-     * @param pnlChange The change in PnL to apply
-     */
-    function updateNetPnl(int256 pnlChange) external;
-
-    /**
-     * @notice Withdraw excess synthetic funds as fees
-     * @param amount The amount of funds to withdraw
-     * @param recipient The address to receive the withdrawn funds
-     */
-    function withdrawExcessFunds(uint256 amount, address recipient) external;
-
-    /**
-     * @notice View the current net pnl
-     * @return The current net synthetic balance changes
-     */
-    function viewNetPnl() external view returns (int256);
+    function batchUpdateUserBalance(address[] calldata users, int256[] calldata pnls) external;
 }

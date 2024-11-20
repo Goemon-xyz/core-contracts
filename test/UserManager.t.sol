@@ -191,132 +191,132 @@
 //         assertEq(balance, amount, "Deposit amount should match user balance");
 //     }
 
-//     function testWithdraw() public {
-//         testPermitDeposit();
-//         uint256 withdrawAmount = 500 * 10 ** 18;
+//     // function testWithdraw() public {
+//     //     testPermitDeposit();
+//     //     uint256 withdrawAmount = 500 * 10 ** 18;
 
-//         vm.prank(user1);
-//         userManager.withdraw(withdrawAmount);
+//     //     vm.prank(user1);
+//     //     userManager.withdraw(withdrawAmount);
 
-//         (uint256 balance, ) = userManager.getUserBalance(user1);
-//         assertEq(balance, 500 * 10 ** 18, "Withdrawn amount should be deducted from balance");
-//     }
+//     //     (uint256 balance, ) = userManager.getUserBalance(user1);
+//     //     assertEq(balance, 500 * 10 ** 18, "Withdrawn amount should be deducted from balance");
+//     // }
 
-//     function testFailWithdrawInsufficientBalance() public {
-//         testPermitDeposit();
+//     // function testFailWithdrawInsufficientBalance() public {
+//     //     testPermitDeposit();
 
-//         vm.prank(user1);
-//         // Expecting InsufficientBalance custom error
-//         vm.expectRevert(IUserManager.InsufficientBalance.selector);
-//         userManager.withdraw(2000 * 10 ** 18); // Attempt to withdraw more than deposited
-//     }
+//     //     vm.prank(user1);
+//     //     // Expecting InsufficientBalance custom error
+//     //     vm.expectRevert(IUserManager.InsufficientBalance.selector);
+//     //     userManager.withdraw(2000 * 10 ** 18); // Attempt to withdraw more than deposited
+//     // }
 
-//     function testPauseUnpause() public {
-//         vm.prank(userManager.owner());
-//         userManager.pause();
+//     // function testPauseUnpause() public {
+//     //     vm.prank(userManager.owner());
+//     //     userManager.pause();
 
-//         // Expecting the permitDeposit to revert with Paused custom error if implemented
-//         // Since Paused is a standard OpenZeppelin error, we can use the predefined selector
-//         vm.expectRevert(bytes("Pausable: paused"));
-//         vm.prank(user1);
-//         userManager.permitDeposit(1, block.timestamp + 1 hours, 0, "", "");
+//     //     // Expecting the permitDeposit to revert with Paused custom error if implemented
+//     //     // Since Paused is a standard OpenZeppelin error, we can use the predefined selector
+//     //     vm.expectRevert(bytes("Pausable: paused"));
+//     //     vm.prank(user1);
+//     //     userManager.permitDeposit(1, block.timestamp + 1 hours, 0, "", "");
 
-//         vm.prank(userManager.owner());
-//         userManager.unpause();
+//     //     vm.prank(userManager.owner());
+//     //     userManager.unpause();
 
-//         // Now it should work (it might revert for other reasons, but not because it's paused)
-//         vm.prank(user1);
-//         // Since we're depositing a minimal amount, ensure it doesn't revert due to pause
-//         // Assuming other validations pass
-//         vm.expectEmit(true, true, true, true);
-//         emit IUserManager.Deposit(user1, 1);
-//         userManager.permitDeposit(1, block.timestamp + 1 hours, 0, "", "");
-//     }
+//     //     // Now it should work (it might revert for other reasons, but not because it's paused)
+//     //     vm.prank(user1);
+//     //     // Since we're depositing a minimal amount, ensure it doesn't revert due to pause
+//     //     // Assuming other validations pass
+//     //     vm.expectEmit(true, true, true, true);
+//     //     emit IUserManager.Deposit(user1, 1);
+//     //     userManager.permitDeposit(1, block.timestamp + 1 hours, 0, "", "");
+//     // }
 
-//     function testInitializer() public {
-//         // Attempt to re-initialize the contract, which should fail
-//         vm.expectRevert("Initializable: contract is already initialized");
-//         userManager.initialize(address(token), address(permit2));
-//     }
+//     // function testInitializer() public {
+//     //     // Attempt to re-initialize the contract, which should fail
+//     //     vm.expectRevert("Initializable: contract is already initialized");
+//     //     userManager.initialize(address(token), address(permit2));
+//     // }
 
-//     function testLockUnlockUserBalance() public {
-//         uint256 lockAmount = 200 * 10 ** 18;
+//     // function testLockUnlockUserBalance() public {
+//     //     uint256 lockAmount = 200 * 10 ** 18;
 
-//         // First deposit tokens for user1
-//         testPermitDeposit();
+//     //     // First deposit tokens for user1
+//     //     testPermitDeposit();
 
-//         // Lock the user's balance
-//         vm.prank(address(intentsEngine));
-//         userManager.lockUserBalance(user1, lockAmount);
+//     //     // Lock the user's balance
+//     //     vm.prank(address(intentsEngine));
+//     //     userManager.lockUserBalance(user1, lockAmount);
 
-//         // Check locked balance
-//         (, uint256 lockedBalance) = userManager.getUserBalance(user1);
-//         assertEq(lockedBalance, lockAmount, "Locked balance should match lock amount");
+//     //     // Check locked balance
+//     //     (, uint256 lockedBalance) = userManager.getUserBalance(user1);
+//     //     assertEq(lockedBalance, lockAmount, "Locked balance should match lock amount");
 
-//         // Unlock the user's balance
-//         vm.prank(address(tradeExecutor));
-//         userManager.unlockUserBalance(user1, lockAmount);
+//     //     // Unlock the user's balance
+//     //     vm.prank(address(tradeExecutor));
+//     //     userManager.unlockUserBalance(user1, lockAmount);
 
-//         // Check final balances
-//         (uint256 availableBalance, uint256 finalLockedBalance) = userManager.getUserBalance(user1);
-//         assertEq(availableBalance, 1000 * 10 ** 18, "Available balance should be back to initial deposit");
-//         assertEq(finalLockedBalance, 0, "Locked balance should be fully unlocked");
-//     }
+//     //     // Check final balances
+//     //     (uint256 availableBalance, uint256 finalLockedBalance) = userManager.getUserBalance(user1);
+//     //     assertEq(availableBalance, 1000 * 10 ** 18, "Available balance should be back to initial deposit");
+//     //     assertEq(finalLockedBalance, 0, "Locked balance should be fully unlocked");
+//     // }
 
-//     function testAdjustUserBalance() public {
-//         int256 adjustAmount = 100 * 10 ** 18;
+//     // function testAdjustUserBalance() public {
+//     //     int256 adjustAmount = 100 * 10 ** 18;
 
-//         // First deposit tokens for user1
-//         testPermitDeposit();
+//     //     // First deposit tokens for user1
+//     //     testPermitDeposit();
 
-//         // Adjust the user's balance positively
-//         vm.prank(address(tradeExecutor));
-//         userManager.adjustUserBalance(user1, adjustAmount);
+//     //     // Adjust the user's balance positively
+//     //     vm.prank(address(tradeExecutor));
+//     //     userManager.adjustUserBalance(user1, adjustAmount);
 
-//         // Check adjusted balance
-//         (uint256 adjustedBalance, ) = userManager.getUserBalance(user1);
-//         assertEq(adjustedBalance, 1100 * 10 ** 18, "Balance should be increased by adjust amount");
+//     //     // Check adjusted balance
+//     //     (uint256 adjustedBalance, ) = userManager.getUserBalance(user1);
+//     //     assertEq(adjustedBalance, 1100 * 10 ** 18, "Balance should be increased by adjust amount");
 
-//         // Adjust the user's balance negatively
-//         vm.prank(address(tradeExecutor));
-//         userManager.adjustUserBalance(user1, -adjustAmount);
+//     //     // Adjust the user's balance negatively
+//     //     vm.prank(address(tradeExecutor));
+//     //     userManager.adjustUserBalance(user1, -adjustAmount);
 
-//         // Check final balance
-//         (uint256 finalBalance, ) = userManager.getUserBalance(user1);
-//         assertEq(finalBalance, 1000 * 10 ** 18, "Balance should be back to initial deposit");
-//     }
+//     //     // Check final balance
+//     //     (uint256 finalBalance, ) = userManager.getUserBalance(user1);
+//     //     assertEq(finalBalance, 1000 * 10 ** 18, "Balance should be back to initial deposit");
+//     // }
 
-//     function testWithdrawLockedBalance() public {
-//         uint256 lockAmount = 200 * 10 ** 18;
+//     // function testWithdrawLockedBalance() public {
+//     //     uint256 lockAmount = 200 * 10 ** 18;
 
-//         // First deposit tokens for user1
-//         testPermitDeposit();
+//     //     // First deposit tokens for user1
+//     //     testPermitDeposit();
 
-//         // Lock the user's balance
-//         vm.prank(address(intentsEngine));
-//         userManager.lockUserBalance(user1, lockAmount);
+//     //     // Lock the user's balance
+//     //     vm.prank(address(intentsEngine));
+//     //     userManager.lockUserBalance(user1, lockAmount);
 
-//         // Withdraw locked balance
-//         vm.prank(userManager.owner());
-//         userManager.withdrawLockedBalance(lockAmount, treasury);
+//     //     // Withdraw locked balance
+//     //     vm.prank(userManager.owner());
+//     //     userManager.withdrawLockedBalance(lockAmount, treasury);
 
-//         // Check treasury balance
-//         uint256 treasuryBalance = token.balanceOf(treasury);
-//         assertEq(treasuryBalance, lockAmount, "Treasury should receive the locked amount");
-//     }
+//     //     // Check treasury balance
+//     //     uint256 treasuryBalance = token.balanceOf(treasury);
+//     //     assertEq(treasuryBalance, lockAmount, "Treasury should receive the locked amount");
+//     // }
 
-//     function testRepayLockedBalance() public {
-//         uint256 repayAmount = 200 * 10 ** 18;
+//     // function testRepayLockedBalance() public {
+//     //     uint256 repayAmount = 200 * 10 ** 18;
 
-//         // First deposit tokens for user1
-//         testPermitDeposit();
+//     //     // First deposit tokens for user1
+//     //     testPermitDeposit();
 
-//         // Repay locked balance
-//         vm.prank(userManager.owner());
-//         userManager.repayLockedBalance(repayAmount, user1);
+//     //     // Repay locked balance
+//     //     vm.prank(userManager.owner());
+//     //     userManager.repayLockedBalance(repayAmount, user1);
 
-//         // Check total locked balance
-//         uint256 totalLocked = userManager.totalLockedBalance();
-//         assertEq(totalLocked, repayAmount, "Total locked balance should be increased by repay amount");
-//     }
+//     //     // Check total locked balance
+//     //     uint256 totalLocked = userManager.totalLockedBalance();
+//     //     assertEq(totalLocked, repayAmount, "Total locked balance should be increased by repay amount");
+//     // }
 // }
