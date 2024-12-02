@@ -2,20 +2,12 @@
 pragma solidity ^0.8.26;
 
 interface IUserManager {
-    // Structs
-    struct WithdrawalRequest {
-        uint256 amount;
-        uint256 availableAt;
-    }
-
     // Events
     event Deposit(address indexed user, uint256 amount);
     event Withdraw(address indexed user, uint256 amount);
-    event BalanceAdjusted(address indexed user, int256 amount);
     event OrderFilled(address indexed user, uint256 orderAmount);
-    event OrderClosed(address indexed user, int256 pnl);
-    event BatchOrderClosed(address[] users, int256[] pnls);
-    event WithdrawalInitiated(address indexed user, uint256 amount, uint256 availableAt);
+    event OrderClosed(address indexed user, uint256 orderAmount);
+    event BatchWithdraw(address[] users, uint256[] amounts);
 
     // Custom Errors
     error InsufficientBalance();
@@ -25,10 +17,9 @@ interface IUserManager {
     error InvalidAddress();
     error PermitExpired();
     error AmountMismatch();
-    error PermitTransferFailed();
-    error WithdrawalDelayNotPassed();
-    error NoWithdrawalToCancel();
-    error InvalidWithdrawalRequestIndex();
+    error WithdrawFailed();
+    error NoFeesToCollect();
+    error FeeCollectionFailed();
 
     // Function Signatures
 
@@ -56,61 +47,49 @@ interface IUserManager {
     function fillOrder(address user, uint256 orderAmount) external;
 
     /**
-     * @notice Update a user's balance based on pnl
+     * @notice Close an order for a user
      * @param user The address of the user
-     * @param pnl The profit or loss to apply
+     * @param orderAmount The amount of the order
      */
-    function orderClose(address user, int256 pnl) external;
+    function closeOrder(address user, uint256 orderAmount) external;
 
     /**
-     * @notice Batch update users' balances based on pnl
-     * @param users The addresses of the users
-     * @param pnls The profits or losses to apply
-     */
-    function batchOrderClose(address[] calldata users, int256[] calldata pnls) external;
-
-    /**
-     * @notice Withdraw all available synthetic balance
-     */
-    function withdraw() external;
-
-    /**
-     * @notice Initiate a withdrawal
+     * @notice Withdraw funds to a single user
+     * @param user The address of the user
      * @param amount The amount to withdraw
      */
-    function initiateWithdrawal(uint256 amount) external;
+    function withdraw(address user, uint256 amount) external;
 
     /**
-     * @notice Cancel a specific withdrawal request
-     * @param index The index of the withdrawal request to cancel
+     * @notice Batch withdraw funds to multiple users
+     * @param users The addresses of the users
+     * @param amounts The amounts to withdraw to each user
+     * @param totalAmount The total amount to withdraw
      */
-    function cancelWithdrawal(uint256 index) external;
+    function batchWithdraw(address[] calldata users, uint256[] calldata amounts, uint256 totalAmount) external;
 
     /**
-     * @notice Get all withdrawal requests for a user
-     * @param user The address of the user
-     * @return requests An array of withdrawal requests
+     * @notice Collect accumulated fees
      */
-    function getWithdrawalRequests(address user) external view returns (WithdrawalRequest[] memory requests);
+    function collectFees() external;
 
     /**
-     * @notice Get the balance of a user
-     * @param user The address of the user
-     * @return The user's balance
+     * @notice Get the contract's token balance minus collected fees
+     * @return The token balance of the contract minus collected fees
      */
-    function getUserBalance(address user) external view returns (uint256);
+    function getBalance() external view returns (uint256);
+
+    /**
+     * @notice Get the total collected fees
+     * @return The total collected fees in the contract
+     */
+    function getCollectedFees() external view returns (uint256);
 
     /**
      * @notice Set the powerTrade account address
      * @param _powerTrade The address of the powerTrade account
      */
     function setPowerTrade(address _powerTrade) external;
-
-    /**
-     * @notice Set the withdrawal delay
-     * @param delay The delay in seconds
-     */
-    function setWithdrawalDelay(uint256 delay) external;
 
     /**
      * @notice Pause the contract

@@ -20,10 +20,10 @@ contract UserManager is
     IERC20 public token;
     ISignatureTransfer public permit2;
     address public powerTrade;
-
-    mapping(address => uint256) private userBalances;
-    mapping(address => WithdrawalRequest[]) private withdrawalRequests;
-    uint256 public withdrawalDelay;
+    uint256 public fee; // Fee in wei
+    uint256 public collectedFees; // Total collected fees
+    uint256 public minimumWithdrawAmount; // Minimum amount for withdrawal
+    bool public useFeesForWithdrawals; // Flag to allow using fees for withdrawals
 
     /// @notice Initialize the UserManager contract
     /// @param _token The address of the ERC20 token contract
@@ -37,6 +37,24 @@ contract UserManager is
         token = IERC20(_token);
         powerTrade = _powerTrade;
         permit2 = IPermit2(permit2Address);
+    }
+
+    /// @notice Set the fee for withdrawals
+    /// @param _fee The fee amount in wei
+    function setFee(uint256 _fee) external onlyOwner {
+        fee = _fee;
+    }
+
+    /// @notice Set the minimum withdrawal amount
+    /// @param _minimumWithdrawAmount The minimum amount for withdrawal
+    function setMinimumWithdrawAmount(uint256 _minimumWithdrawAmount) external onlyOwner {
+        minimumWithdrawAmount = _minimumWithdrawAmount;
+    }
+
+    /// @notice Enable or disable using collected fees for withdrawals
+    /// @param _useFees Boolean to enable or disable using fees for withdrawals
+    function setUseFeesForWithdrawals(bool _useFees) external onlyOwner {
+        useFeesForWithdrawals = _useFees;
     }
 
     /// @notice Deposit synthetic balance using permit
@@ -53,54 +71,45 @@ contract UserManager is
         bytes calldata signature
     ) external nonReentrant whenNotPaused {
         if (block.timestamp > deadline) revert PermitExpired();
-
         (address permittedToken, uint256 permitAmount) = abi.decode(
             permitTransferFrom,
             (address, uint256)
         );
-
         if (permittedToken != address(token)) revert InvalidToken();
         if (permitAmount != amount) revert AmountMismatch();
 
-        try
-            permit2.permitTransferFrom(
-                ISignatureTransfer.PermitTransferFrom({
-                    permitted: ISignatureTransfer.TokenPermissions({
-                        token: permittedToken,
-                        amount: amount
-                    }),
-                    nonce: nonce,
-                    deadline: deadline
+        permit2.permitTransferFrom(
+            ISignatureTransfer.PermitTransferFrom({
+                permitted: ISignatureTransfer.TokenPermissions({
+                    token: permittedToken,
+                    amount: amount
                 }),
-                ISignatureTransfer.SignatureTransferDetails({
-                    to: powerTrade, 
-                    requestedAmount: amount
-                }),
-                msg.sender,
-                signature
-            )
-        {
-            // Update user balance after successful transfer
-            userBalances[msg.sender] += amount;
-        } catch Error(string memory reason) {
-            revert(
-                string(abi.encodePacked("Permit2 transfer failed: ", reason))
-            );
-        } catch (bytes memory lowLevelData) {
-            revert(
-                string(
-                    abi.encodePacked(
-                        "Permit2 transfer failed: ",
-                        _toHex(lowLevelData)
-                    )
-                )
-            );
-        }
+                nonce: nonce,
+                deadline: deadline
+            }),
+            ISignatureTransfer.SignatureTransferDetails({
+                to: powerTrade, 
+                requestedAmount: amount
+            }),
+            msg.sender,
+            signature
+        );
     }
 
+    /// @notice Fill an order for a user
+    /// @param user The address of the user
+    /// @param orderAmount The amount of the order
     function fillOrder(address user, uint256 orderAmount) external {
         // Emit the OrderFilled event
         emit OrderFilled(user, orderAmount);
+    }
+
+    /// @notice Close an order for a user
+    /// @param user The address of the user
+    /// @param orderAmount The amount of the order
+    function closeOrder(address user, uint256 orderAmount) external {
+        // Emit the OrderClosed event
+        emit OrderClosed(user, orderAmount);
     }
 
     function _toHex(bytes memory data) internal pure returns (string memory) {
@@ -115,98 +124,47 @@ contract UserManager is
         return string(str);
     }
 
-    /// @notice Update a user's balance based on pnl
+    /// @notice Withdraw funds to a single user
     /// @param user The address of the user
-    /// @param pnl The profit or loss to apply
-    function orderClose(address user, int256 pnl) external onlyOwner {
-        if (pnl > 0) {
-            userBalances[user] += uint256(pnl);
-        } else {
-            uint256 absPnl = uint256(-pnl);
-            if (userBalances[user] < absPnl) revert InsufficientBalance();
-            userBalances[user] -= absPnl;
-        }
-
-        emit OrderClosed(user, pnl);
-    }
-
-    /// @notice Batch update users' balances based on pnl
-    /// @param users The addresses of the users
-    /// @param pnls The profits or losses to apply
-    function batchOrderClose(address[] calldata users, int256[] calldata pnls) external onlyOwner {
-        require(users.length == pnls.length, "Mismatched array lengths");
-
-        for (uint256 i = 0; i < users.length; i++) {
-            address user = users[i];
-            int256 pnl = pnls[i];
-
-            if (pnl > 0) {
-                userBalances[user] += uint256(pnl);
-            } else {
-                uint256 absPnl = uint256(-pnl);
-                if (userBalances[user] < absPnl) revert InsufficientBalance();
-                userBalances[user] -= absPnl;
-            }
-        }
-
-        // Emit a single event with all users and their respective pnls
-        emit BatchOrderClosed(users, pnls);
-    }
-
-    /// @notice Initiate a withdrawal
     /// @param amount The amount to withdraw
-    function initiateWithdrawal(uint256 amount) external {
-        if (userBalances[msg.sender] < amount) revert InsufficientBalance();
-        withdrawalRequests[msg.sender].push(WithdrawalRequest({
-            amount: amount,
-            availableAt: block.timestamp + withdrawalDelay
-        }));
-        emit WithdrawalInitiated(msg.sender, amount, block.timestamp + withdrawalDelay);
+    function withdraw(address user, uint256 amount) external onlyOwner nonReentrant whenNotPaused {
+        if (amount < minimumWithdrawAmount) revert InvalidAmount();
+        uint256 amountAfterFee = amount - fee;
+        uint256 availableBalance = useFeesForWithdrawals ? address(this).balance : address(this).balance - collectedFees;
+        if (availableBalance < amountAfterFee) revert InsufficientBalance();
+        (bool success, ) = user.call{value: amountAfterFee}("");
+        if (!success) revert WithdrawFailed();
+        collectedFees += fee;
+        emit Withdraw(user, amountAfterFee);
     }
 
-    /// @notice Withdraw all available synthetic balance
-    function withdraw() external nonReentrant whenNotPaused {
-        uint256 totalAvailable = 0;
+    /// @notice Batch withdraw funds to multiple users
+    /// @param users The addresses of the users
+    /// @param amounts The amounts to withdraw to each user
+    /// @param totalAmount The total amount to withdraw
+    function batchWithdraw(address[] calldata users, uint256[] calldata amounts, uint256 totalAmount) external onlyOwner nonReentrant whenNotPaused {
+        if (users.length != amounts.length) revert AmountMismatch();
+        uint256 availableBalance = useFeesForWithdrawals ? address(this).balance : address(this).balance - collectedFees;
+        if (availableBalance < totalAmount) revert InsufficientBalance();
 
-        for (uint256 i = 0; i < withdrawalRequests[msg.sender].length; i++) {
-            WithdrawalRequest storage request = withdrawalRequests[msg.sender][i];
-            if (block.timestamp >= request.availableAt && request.amount > 0) {
-                totalAvailable += request.amount;
-                request.amount = 0; // Mark the request as processed
-            }
+        uint256 feePerUser = fee; // Cache fee in memory to save gas
+        for (uint256 i = 0; i < users.length; i++) {
+            if (amounts[i] < minimumWithdrawAmount) revert InvalidAmount();
+            uint256 amountAfterFee = amounts[i] - feePerUser;
+            (bool success, ) = users[i].call{value: amountAfterFee}("");
+            if (!success) revert WithdrawFailed();
+            collectedFees += feePerUser;
         }
 
-        if (totalAvailable == 0) revert InsufficientBalance();
-
-        unchecked {
-            userBalances[msg.sender] -= totalAvailable;
-        }
-
-        emit Withdraw(msg.sender, totalAvailable);
+        emit BatchWithdraw(users, amounts);
     }
 
-    /// @notice Cancel a specific withdrawal request
-    /// @param index The index of the withdrawal request to cancel
-    function cancelWithdrawal(uint256 index) external {
-        if (index >= withdrawalRequests[msg.sender].length) revert("Invalid withdrawal request index");
-
-        WithdrawalRequest storage request = withdrawalRequests[msg.sender][index];
-        if (request.amount == 0) revert("No withdrawal to cancel");
-
-        // Unlock the amount
-        userBalances[msg.sender] += request.amount;
-
-        // Remove the request by setting its amount to zero
-        request.amount = 0;
-
-        emit WithdrawalInitiated(msg.sender, 0, 0); // Emit event with zeroed values to indicate cancellation
-    }
-
-    /// @notice Get all withdrawal requests for a user
-    /// @param user The address of the user
-    /// @return requests An array of withdrawal requests
-    function getWithdrawalRequests(address user) external view returns (WithdrawalRequest[] memory requests) {
-        return withdrawalRequests[user];
+    /// @notice Collect accumulated fees
+    function collectFees() external onlyOwner {
+        uint256 feesToCollect = collectedFees;
+        collectedFees = 0;
+        (bool success, ) = msg.sender.call{value: feesToCollect}("");
+        if (!success) revert FeeCollectionFailed();
     }
 
     /// @notice Set the powerTrade account address
@@ -216,17 +174,16 @@ contract UserManager is
         powerTrade = _powerTrade;
     }
 
-    /// @notice Set the withdrawal delay
-    /// @param delay The delay in seconds
-    function setWithdrawalDelay(uint256 delay) external onlyOwner {
-        withdrawalDelay = delay;
+    /// @notice Get the contract's token balance minus collected fees
+    /// @return The token balance of the contract minus collected fees
+    function getBalance() external view returns (uint256) {
+        return address(this).balance - collectedFees;
     }
 
-    /// @notice Get the balance of a user
-    /// @param user The address of the user
-    /// @return The user's balance
-    function getUserBalance(address user) external view returns (uint256) {
-        return userBalances[user];
+    /// @notice Get the total collected fees
+    /// @return The total collected fees in the contract
+    function getCollectedFees() external view returns (uint256) {
+        return collectedFees;
     }
 
     /// @notice Pause the contract
