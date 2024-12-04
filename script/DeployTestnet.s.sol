@@ -8,7 +8,7 @@ contract DeployUserManager is Script {
     address public constant USDC_ADDRESS = 0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238;
     address public constant POWER_TRADE_ADDRESS = 0x5365598ba13e9f40AB2181dCB843Fa7875dA08a4; // Replace with actual address
     address public constant PERMIT2_ADDRESS = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
-    uint256 public constant INITIAL_FEE = 1e6; // Example fee in wei (adjust as needed)
+    uint256 public constant INITIAL_FEE = 1e3; // Example fee in wei (adjust as needed)
 
     function run() external {
         // Start broadcasting the transaction

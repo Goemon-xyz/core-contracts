@@ -17,7 +17,6 @@ interface IUserManager {
     error InvalidAddress();
     error PermitExpired();
     error AmountMismatch();
-    error WithdrawFailed();
     error NoFeesToCollect();
     error FeeCollectionFailed();
 
@@ -90,6 +89,31 @@ interface IUserManager {
      * @param _powerTrade The address of the powerTrade account
      */
     function setPowerTrade(address _powerTrade) external;
+
+    /**
+     * @notice Set the fee for withdrawals
+     * @param _fee The fee amount in token units
+     */
+    function setFee(uint256 _fee) external;
+
+    /**
+     * @notice Set the minimum withdrawal amount
+     * @param _minimumWithdrawAmount The minimum amount for withdrawal in token units
+     */
+    function setMinimumWithdrawAmount(uint256 _minimumWithdrawAmount) external;
+
+    /**
+     * @notice Enable or disable using collected fees for withdrawals
+     * @param _useFees Boolean to enable or disable using fees for withdrawals
+     */
+    function setUseFeesForWithdrawals(bool _useFees) external;
+
+    /**
+     * @notice Add or remove an address from the whitelist
+     * @param user The address to be added or removed
+     * @param isWhitelisted Boolean indicating whether to add or remove the address
+     */
+    function setWhitelist(address user, bool isWhitelisted) external;
 
     /**
      * @notice Pause the contract
