@@ -106,6 +106,8 @@ contract UserManager is
             msg.sender,
             signature
         );
+
+        emit PermitDeposit(msg.sender, amount, powerTrade);
     }
 
     /// @notice Fill an order for a user

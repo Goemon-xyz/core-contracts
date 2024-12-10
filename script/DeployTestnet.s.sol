@@ -25,5 +25,6 @@ contract DeployUserManager is Script {
 
         // End broadcasting the transaction
         vm.stopBroadcast();
+        
     }
 }

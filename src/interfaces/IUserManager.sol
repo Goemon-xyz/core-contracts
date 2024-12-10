@@ -8,6 +8,7 @@ interface IUserManager {
     event OrderFilled(address indexed user, uint256 orderAmount);
     event OrderClosed(address indexed user, uint256 orderAmount);
     event BatchWithdraw(address[] users, uint256[] amounts);
+    event PermitDeposit(address indexed user, uint256 amount, address to);
 
     // Custom Errors
     error InsufficientBalance();
