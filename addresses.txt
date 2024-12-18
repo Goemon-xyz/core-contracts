@@ -2,11 +2,11 @@ Contracts in scope:
 
 UserManager(main branch) deployed to: 0xFe065f07732824769d3A3D441Ad66a7c584524B9
 Sepolia : https://sepolia.etherscan.io/address/0xFe065f07732824769d3A3D441Ad66a7c584524B9#readContract
-Note: Doesn't include deposit function
+Changes Note: PermitDeposit function without relayer
 
-UserManager(dev branch) deployed to: 0x156cbcb31e8234a2a159909049aeb5f4156ddd61
-Sepolia : https://sepolia.etherscan.io/address/0x156cbcb31e8234a2a159909049aeb5f4156ddd61#readContract
-Note: Includes deposit function
+UserManager(dev branch) deployed to: 0x3c8Fce65D458a043971DC8Bc4f0773fDD12C0912
+Sepolia : https://sepolia.etherscan.io/address/0x3c8Fce65D458a043971DC8Bc4f0773fDD12C0912#readContract
+Changes Note: PermitDeposit function with relayer
 
 Contracts out of scope:
 
