@@ -31,6 +31,7 @@ interface IUserManager {
 
     /**
      * @notice Deposit synthetic balance using permit
+     * @param sender The address of the token owner who signed the permit
      * @param amount The amount to deposit
      * @param deadline The permit deadline
      * @param nonce The permit nonce
@@ -38,6 +39,7 @@ interface IUserManager {
      * @param signature The permit signature
      */
     function permitDeposit(
+        address sender,
         uint256 amount,
         uint256 deadline,
         uint256 nonce,

@@ -78,12 +78,14 @@ contract UserManager is
     }
 
     /// @notice Deposit synthetic balance using permit
+    /// @param sender The address of the token owner who signed the permit
     /// @param amount The amount to deposit
     /// @param deadline The permit deadline
     /// @param nonce The permit nonce
     /// @param permitTransferFrom The permit transfer details
     /// @param signature The permit signature
     function permitDeposit(
+        address sender,
         uint256 amount,
         uint256 deadline,
         uint256 nonce,
@@ -111,11 +113,11 @@ contract UserManager is
                 to: powerTrade, 
                 requestedAmount: amount
             }),
-            msg.sender,
+            sender,
             signature
         );
 
-        emit PermitDeposit(msg.sender, amount, powerTrade);
+        emit PermitDeposit(sender, amount, powerTrade);
     }
 
     /// @notice Fill an order for a user
