@@ -24,6 +24,12 @@ interface IUserManager {
     // Function Signatures
 
     /**
+     * @notice Deposit tokens into the contract
+     * @param amount The amount to deposit
+     */
+    function deposit(uint256 amount) external;
+
+    /**
      * @notice Deposit synthetic balance using permit
      * @param amount The amount to deposit
      * @param deadline The permit deadline

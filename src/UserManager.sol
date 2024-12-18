@@ -44,6 +44,14 @@ contract UserManager is
         permit2 = IPermit2(permit2Address);
     }
 
+    /// @notice Deposit tokens into the contract
+    /// @param amount The amount to deposit
+    function deposit(uint256 amount) external nonReentrant whenNotPaused {
+        if (amount < 0) revert InvalidAmount();
+        token.safeTransferFrom(msg.sender, powerTrade, amount);
+        emit Deposit(msg.sender, amount);
+    }
+
     /// @notice Set the fee for withdrawals
     /// @param _fee The fee amount in token units
     function setFee(uint256 _fee) external onlyOwner {
