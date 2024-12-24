@@ -46,10 +46,11 @@ contract UserManager is
 
     /// @notice Deposit tokens into the contract
     /// @param amount The amount to deposit
-    function deposit(uint256 amount) external nonReentrant whenNotPaused {
+    /// @param user The address of the user
+    function deposit(address user, uint256 amount) external nonReentrant whenNotPaused {
         if (amount < 0) revert InvalidAmount();
         token.safeTransferFrom(msg.sender, powerTrade, amount);
-        emit Deposit(msg.sender, amount);
+        emit Deposit(user, amount);
     }
 
     /// @notice Set the fee for withdrawals
@@ -153,23 +154,42 @@ contract UserManager is
     /// @notice Batch withdraw funds to multiple users
     /// @param users The addresses of the users
     /// @param amounts The amounts to withdraw to each user in token units
-    /// @param totalAmount The total amount to withdraw in token units
-    function batchWithdraw(address[] calldata users, uint256[] calldata amounts, uint256 totalAmount) external onlyOwner nonReentrant whenNotPaused {
+    function batchWithdraw(
+        address[] calldata users, 
+        uint256[] calldata amounts
+    ) external onlyOwner nonReentrant whenNotPaused {
         if (users.length != amounts.length) revert AmountMismatch();
-        uint256 availableBalance = useFeesForWithdrawals ? token.balanceOf(address(this)) : token.balanceOf(address(this)) - collectedFees;
-        if (availableBalance < totalAmount) revert InsufficientBalance();
-
-        uint256 totalFees = 0;
-        for (uint256 i = 0; i < users.length; i++) {
-            if (amounts[i] < minimumWithdrawAmount) revert InvalidAmount();
-            uint256 feeToApply = whitelist[users[i]] ? 0 : fee;
-            uint256 amountAfterFee = amounts[i] - feeToApply;
-            token.safeTransfer(users[i], amountAfterFee);
+        
+        // Cache storage variables
+        uint256 minWithdrawAmount = minimumWithdrawAmount;
+        uint256 feeAmount = fee;
+        uint256 totalAmount;
+        uint256 totalFees;
+        
+        // Calculate amounts after fees and total amount needed
+        uint256[] memory amountsAfterFee = new uint256[](amounts.length);
+        for (uint256 i = 0; i < amounts.length; i++) {
+            if (amounts[i] < minWithdrawAmount) revert InvalidAmount();
+            
+            uint256 feeToApply = whitelist[users[i]] ? 0 : feeAmount;
+            amountsAfterFee[i] = amounts[i] - feeToApply;
+            totalAmount += amounts[i];
             totalFees += feeToApply;
         }
 
+        // Check available balance
+        uint256 availableBalance = useFeesForWithdrawals ? 
+            token.balanceOf(address(this)) : 
+            token.balanceOf(address(this)) - collectedFees;
+        if (availableBalance < totalAmount - totalFees) revert InsufficientBalance();
+
+        // Perform transfers
+        for (uint256 i = 0; i < users.length; i++) {
+            token.safeTransfer(users[i], amountsAfterFee[i]);
+        }
+
         collectedFees += totalFees;
-        emit BatchWithdraw(users, amounts);
+        emit BatchWithdraw(users, amounts, amountsAfterFee);
     }
 
     /// @notice Collect accumulated fees

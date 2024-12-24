@@ -1,12 +1,13 @@
 Contracts in scope:
 
-UserManager(main branch) deployed to: 0xFe065f07732824769d3A3D441Ad66a7c584524B9
-Sepolia : https://sepolia.etherscan.io/address/0xFe065f07732824769d3A3D441Ad66a7c584524B9#readContract
-Note: Doesn't include deposit function
+UserManager for stage branch (mainnet-api) deployed to: 0x017eD1a7e43bBd9F27da1114Fa538744ABFc5721
+Sepolia : https://sepolia.etherscan.io/address/0x017eD1a7e43bBd9F27da1114Fa538744ABFc5721#readContract
+Changes Note: Includes deposit function, event is refactored to track user via API
 
-UserManager(dev branch) deployed to: 0x156cbcb31e8234a2a159909049aeb5f4156ddd61
+UserManager for dev branch (staging-api) deployed to: 0x156cbcb31e8234a2a159909049aeb5f4156ddd61
 Sepolia : https://sepolia.etherscan.io/address/0x156cbcb31e8234a2a159909049aeb5f4156ddd61#readContract
-Note: Includes deposit function
+Changes Note: Includes deposit function but event is not refactored to track user via API
+
 
 Contracts out of scope:
 

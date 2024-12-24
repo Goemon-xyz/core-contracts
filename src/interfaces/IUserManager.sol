@@ -3,11 +3,15 @@ pragma solidity ^0.8.26;
 
 interface IUserManager {
     // Events
-    event Deposit(address indexed user, uint256 amount);
+    event Deposit(address indexed from, uint256 indexed amount);
     event Withdraw(address indexed user, uint256 amount);
     event OrderFilled(address indexed user, uint256 orderAmount);
     event OrderClosed(address indexed user, uint256 orderAmount);
-    event BatchWithdraw(address[] users, uint256[] amounts);
+    event BatchWithdraw(
+        address[] users, 
+        uint256[] amounts,
+        uint256[] amountsAfterFee
+    );
     event PermitDeposit(address indexed user, uint256 amount, address to);
 
     // Custom Errors
@@ -26,8 +30,9 @@ interface IUserManager {
     /**
      * @notice Deposit tokens into the contract
      * @param amount The amount to deposit
+     * @param user The address of the user
      */
-    function deposit(uint256 amount) external;
+    function deposit(address user, uint256 amount) external;
 
     /**
      * @notice Deposit synthetic balance using permit
@@ -70,9 +75,8 @@ interface IUserManager {
      * @notice Batch withdraw funds to multiple users
      * @param users The addresses of the users
      * @param amounts The amounts to withdraw to each user
-     * @param totalAmount The total amount to withdraw
      */
-    function batchWithdraw(address[] calldata users, uint256[] calldata amounts, uint256 totalAmount) external;
+    function batchWithdraw(address[] calldata users, uint256[] calldata amounts) external;
 
     /**
      * @notice Collect accumulated fees
