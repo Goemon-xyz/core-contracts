@@ -2,6 +2,8 @@ Contracts in scope:
 
 Changes Note: Includes deposit function, event is refactored to track user via API
 
+Changes Note: Includes deposit function, event is refactored to track user via API
+
 Mainnet UserManager for main branch (mainnet-api) deployed to: 0x17727776c52fF11073bc0c94351b29CCaac46B37
 Mainnet : https://etherscan.io/address/0x17727776c52fF11073bc0c94351b29CCaac46B37#readContract
 
