@@ -1,12 +1,17 @@
 Contracts in scope:
 
-UserManager(main branch) deployed to: 0xFe065f07732824769d3A3D441Ad66a7c584524B9
-Sepolia : https://sepolia.etherscan.io/address/0xFe065f07732824769d3A3D441Ad66a7c584524B9#readContract
-Note: Doesn't include deposit function
+Changes Note: Includes deposit function, event is refactored to track user via API
 
-UserManager(dev branch) deployed to: 0x156cbcb31e8234a2a159909049aeb5f4156ddd61
-Sepolia : https://sepolia.etherscan.io/address/0x156cbcb31e8234a2a159909049aeb5f4156ddd61#readContract
-Note: Includes deposit function
+Testnet UserManager for stage branch (mainnet-api) deployed to: 0x017eD1a7e43bBd9F27da1114Fa538744ABFc5721
+Sepolia : https://sepolia.etherscan.io/address/0x017eD1a7e43bBd9F27da1114Fa538744ABFc5721#readContract
+
+
+TestnetUserManager for dev branch (staging-api) deployed to: 0x86651a0f11f01213f2Edffa1662Ab5a9EA7EBa2D
+Sepolia : https://sepolia.etherscan.io/address/0x86651a0f11f01213f2Edffa1662Ab5a9EA7EBa2D#readContract
+
+Mainnet tenderly UserManager address: 0x9f1D36453C683Ae71f6278672062e6E9ad4EF8b2
+Mainnet tenderly - https://virtual.mainnet.rpc.tenderly.co/f26225af-2816-44a1-a48d-478b1bdc322c
+
 
 Contracts out of scope:
 
