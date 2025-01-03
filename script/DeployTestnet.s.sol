@@ -13,7 +13,8 @@ contract DeployUserManager is Script {
 
     function run() external {
         // Start broadcasting the transaction
-        vm.startBroadcast();
+        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        vm.startBroadcast(deployerPrivateKey);
 
         // Deploy UserManager contract
         UserManager userManager = new UserManager();
