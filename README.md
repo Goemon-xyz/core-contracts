@@ -43,7 +43,7 @@ $ forge test -vvv --fork-url https://rpc.ankr.com/eth --decode-internal
 ### Deploy
 
 ```shell
-$ forge script script/DeployGoemon.s.sol:DeployGoemonScript --rpc-url <your_rpc_url> --private-key <your_private_key>
+$ forge script script/Deploy.s.sol:DeployAllContracts --rpc-url http://127.0.0.1:8545  --private-key YOUR-PRIVATE-KEY
 ```
 
 ## Development
@@ -63,6 +63,10 @@ cast rpc anvil_stopImpersonatingAccount 0x28C6c06298d514Db089934071355E5743bf21d
 
 cast call 0xA0b86991c6218b36c1d19d4a2e9eb0ce3606eb48 "balanceOf(address)(uint256)" 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 --rpc-url http://127.0.0.1:8545
 ```
+## Deployed Contracts
+
+- [UserManager(dev branch)](https://sepolia.etherscan.io/address/0x156cbcb31e8234a2a159909049aeb5f4156ddd61#readContract)
+- [UserManager(main branch)](https://sepolia.etherscan.io/address/0xFe065f07732824769d3A3D441Ad66a7c584524B9#readContract)
 
 ## Documentation
 

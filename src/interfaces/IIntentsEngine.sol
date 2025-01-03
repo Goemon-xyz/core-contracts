@@ -10,6 +10,7 @@ interface IIntentsEngine {
         bytes metadata;
     }
 
+    // Events
     event IntentSubmitted(
         address indexed user,
         uint256 amount,
@@ -17,6 +18,14 @@ interface IIntentsEngine {
         bytes metadata
     );
 
+    // Custom Errors
+    error InvalidAddress();
+    error MaxIntentsLimitReached();
+    error Unauthorized();
+    error InvalidIntent();
+    error InsufficientBalance();
+
+    // Function Signatures
     function submitIntent(
         uint256 amount,
         string calldata intentType,

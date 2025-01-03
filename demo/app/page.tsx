@@ -1,23 +1,14 @@
-"use client";
+import { Providers } from "./providers";
+import { Header } from "./components/Header";
+import { Bridge } from "./components/Bridge";
 
-import React from 'react'
-import dynamic from 'next/dynamic'
-import { Web3Provider } from './Web3Provider'
-
-
-const DepositComponent = dynamic(
-  () => import('./components/DepositComponent').then((mod) => mod.DepositComponent),
-  { ssr: false }
-)
-
-
-export default function Home() {
+export default function Ethers() {
   return (
-    <Web3Provider>
-      <main>
-        <h1>USDC Deposit Demo</h1>
-        <DepositComponent />
+    <Providers>
+      <Header />
+      <main className="flex gap-2 text-sm min-h-screen max-w-[800px] min-w-[600px] mx-auto flex-col items-center justify-start p-24">
+        <Bridge />
       </main>
-    </Web3Provider>
-  )
+    </Providers>
+  );
 }
