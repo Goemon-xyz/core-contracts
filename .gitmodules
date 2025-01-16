@@ -17,3 +17,6 @@
 [submodule "lib/pendle-core"]
 	path = lib/pendle-core
 	url = https://github.com/pendle-finance/pendle-core
+[submodule "lib/pendle-core-v2-public"]
+	path = lib/pendle-core-v2-public
+	url = https://github.com/pendle-finance/pendle-core-v2-public
