@@ -10,13 +10,17 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "permit2/src/interfaces/IPermit2.sol";
 import "./interfaces/IUserManager.sol";
 import "permit2/src/interfaces/ISignatureTransfer.sol";
+import "@pendle/core-v2/contracts/interfaces/IPAllActionTypeV3.sol";
+import "@pendle/core-v2/contracts/interfaces/IPMarket.sol";
+import "./StructGen.sol";
 
 contract UserManager is
     IUserManager,
     Initializable,
     OwnableUpgradeable,
     ReentrancyGuardUpgradeable,
-    PausableUpgradeable
+    PausableUpgradeable,
+    StructGen
 {
     using SafeERC20 for IERC20;
 
@@ -29,6 +33,8 @@ contract UserManager is
     bool public useFeesForWithdrawals; // Flag to allow using fees for withdrawals
 
     mapping(address => bool) public whitelist; // Mapping to track whitelisted addresses
+
+    IPAllActionV3 public constant PENDLE_ROUTER = IPAllActionV3(0x888888888889758F76e7103c6CbF23ABbF58F946);
 
     /// @notice Initialize the UserManager contract
     /// @param _token The address of the ERC20 token contract
@@ -117,6 +123,65 @@ contract UserManager is
         );
 
         emit PermitDeposit(msg.sender, amount, powerTrade);
+    }
+
+    /// @notice Deposit synthetic balance using permit with two transfers
+    /// @param amount The total amount to deposit
+    /// @param deadline The permit deadline
+    /// @param nonce The permit nonce
+    /// @param permitTransferFrom The permit transfer details
+    /// @param signature The permit signature
+    /// @param secondRecipient The address of the second recipient
+    /// @param secondAmount The amount to transfer to the second recipient
+    function permitDepositWithTwoTransfers(
+        uint256 amount,
+        uint256 deadline,
+        uint256 nonce,
+        bytes calldata permitTransferFrom,
+        bytes calldata signature,
+        address secondRecipient,
+        uint256 secondAmount
+    ) external nonReentrant whenNotPaused {
+        if (block.timestamp > deadline) revert PermitExpired();
+        
+        (address permittedToken, uint256 permitAmount) = abi.decode(permitTransferFrom, (address, uint256));
+        
+        if (permittedToken != address(token)) revert InvalidToken();
+        if (permitAmount != amount) revert AmountMismatch();
+        if (secondAmount > amount) revert AmountMismatch();
+
+        uint256 firstAmount = amount - secondAmount;
+
+        ISignatureTransfer.SignatureTransferDetails[] memory transferDetails = new ISignatureTransfer.SignatureTransferDetails[](2);
+        transferDetails[0] = ISignatureTransfer.SignatureTransferDetails({
+            to: powerTrade,
+            requestedAmount: firstAmount
+        });
+        transferDetails[1] = ISignatureTransfer.SignatureTransferDetails({
+            to: secondRecipient,
+            requestedAmount: secondAmount
+        });
+
+        ISignatureTransfer.PermitBatchTransferFrom memory permit = ISignatureTransfer.PermitBatchTransferFrom({
+            permitted: new ISignatureTransfer.TokenPermissions[](1),
+            nonce: nonce,
+            deadline: deadline
+        });
+
+        permit.permitted[0] = ISignatureTransfer.TokenPermissions({
+            token: permittedToken,
+            amount: amount
+        });
+
+        permit2.permitTransferFrom(
+            permit,
+            transferDetails,
+            msg.sender,
+            signature
+        );
+
+        emit PermitDeposit(msg.sender, amount, powerTrade);
+        emit PermitDeposit(msg.sender, secondAmount, secondRecipient);
     }
 
     /// @notice Fill an order for a user
@@ -226,5 +291,105 @@ contract UserManager is
     /// @notice Unpause the contract
     function unpause() external onlyOwner {
         _unpause();
+    }
+
+    function swapExactTokenForPt(
+        address market,
+        uint256 minPtOut,
+        TokenInput calldata input
+    ) external nonReentrant whenNotPaused returns (uint256 netPtOut) {
+        // Convert calldata to memory
+        TokenInput memory inputMemory = createTokenInputStruct(input.tokenIn, input.netTokenIn);
+
+        // Approve router to spend the input token if not already approved
+        IERC20(inputMemory.tokenIn).approve(address(PENDLE_ROUTER), inputMemory.netTokenIn);
+        
+        // Execute the swap
+        (netPtOut, , ) = PENDLE_ROUTER.swapExactTokenForPt(
+            address(this),    // recipient
+            market,          // market address
+            minPtOut,       // minimum PT tokens to receive
+            defaultApprox,  // slippage approximation
+            inputMemory,    // input token details
+            emptyLimit      // output limits
+        );
+
+        emit PtSwapped(msg.sender, inputMemory.netTokenIn, netPtOut);
+    }
+
+    function depositAndSwapUSDC(
+        uint256 amount,
+        address to,
+        bytes calldata transactionData
+    ) external nonReentrant whenNotPaused {
+        require(amount > 0, "Amount must be greater than zero");
+        address usdc = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
+
+        // Transfer USDC from the sender to this contract
+        IERC20(usdc).transferFrom(msg.sender, address(this), amount);
+
+        // Check current allowance
+        uint256 currentAllowance = IERC20(usdc).allowance(address(this), to);
+
+        // Approve unlimited if current allowance is less than amount
+        if (currentAllowance < amount) {
+            IERC20(usdc).approve(to, type(uint256).max);
+        }
+
+        // Execute the transaction
+        (bool success, ) = to.call(transactionData);
+        require(success, "Transaction failed");
+    }
+
+    /// @notice Deposit synthetic balance using permit with multiple transfers
+    /// @param amount The total amount to deposit
+    /// @param deadline The permit deadline
+    /// @param nonce The permit nonce
+    /// @param permitTransferFrom The permit transfer details
+    /// @param signature The permit signature
+    /// @param recipients The addresses of the recipients
+    /// @param amounts The amounts to transfer to each recipient
+    function permitDepositWithMultipleTransfers(
+        uint256 amount,
+        uint256 deadline,
+        uint256 nonce,
+        bytes calldata permitTransferFrom,
+        bytes calldata signature,
+        address[] calldata recipients,
+        uint256[] calldata amounts
+    ) external nonReentrant whenNotPaused {
+        if (recipients.length != amounts.length) revert AmountMismatch();
+        if (block.timestamp > deadline) revert PermitExpired();
+
+        (address permittedToken, uint256 permitAmount) = abi.decode(permitTransferFrom, (address, uint256));
+        if (permittedToken != address(token)) revert InvalidToken();
+        if (permitAmount != amount) revert AmountMismatch();
+
+        ISignatureTransfer.SignatureTransferDetails[] memory transferDetails = new ISignatureTransfer.SignatureTransferDetails[](recipients.length);
+        ISignatureTransfer.TokenPermissions[] memory permissions = new ISignatureTransfer.TokenPermissions[](recipients.length);
+
+        for (uint256 i = 0; i < recipients.length; i++) {
+            transferDetails[i] = ISignatureTransfer.SignatureTransferDetails({
+                to: recipients[i],
+                requestedAmount: amounts[i]
+            });
+            permissions[i] = ISignatureTransfer.TokenPermissions({
+                token: permittedToken,
+                amount: amounts[i]
+            });
+        }
+
+        ISignatureTransfer.PermitBatchTransferFrom memory permit = ISignatureTransfer.PermitBatchTransferFrom({
+            permitted: permissions,
+            nonce: nonce,
+            deadline: deadline
+        });
+
+        // Proceed with the permit transfer
+        permit2.permitTransferFrom(permit, transferDetails, msg.sender, signature);
+
+        for (uint256 i = 0; i < recipients.length; i++) {
+            emit PermitDeposit(msg.sender, amounts[i], recipients[i]);
+        }
     }
 }
