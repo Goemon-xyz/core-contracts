@@ -37,13 +37,6 @@ interface IUserManager {
         bytes calldata permitTransferFrom,
         bytes calldata signature
     ) external;
-    function swapExactTokenForPt(
-        address market,
-        uint256 minPtOut,
-        TokenInput calldata input
-    ) external returns (uint256 netPtOut);
-    function fillOrder(address user, uint256 orderAmount) external;
-    function closeOrder(address user, uint256 orderAmount) external;
     function withdraw(address user, uint256 amount) external;
     function batchWithdraw(address[] calldata users, uint256[] calldata amounts) external;
     function collectFees() external;

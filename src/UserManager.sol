@@ -125,79 +125,49 @@ contract UserManager is
         emit PermitDeposit(msg.sender, amount, powerTrade);
     }
 
-    /// @notice Deposit synthetic balance using permit with two transfers
-    /// @param amount The total amount to deposit
-    /// @param deadline The permit deadline
-    /// @param nonce The permit nonce
-    /// @param permitTransferFrom The permit transfer details
-    /// @param signature The permit signature
-    /// @param secondRecipient The address of the second recipient
-    /// @param secondAmount The amount to transfer to the second recipient
-    function permitDepositWithTwoTransfers(
-        uint256 amount,
-        uint256 deadline,
-        uint256 nonce,
-        bytes calldata permitTransferFrom,
-        bytes calldata signature,
-        address secondRecipient,
-        uint256 secondAmount
+    function permitDepositBatchAndSwap(
+        uint256 totalAmount,
+        uint256 yieldAmount,
+        ISignatureTransfer.PermitBatchTransferFrom calldata _permit,
+        bytes calldata _signature,
+        address to,
+        bytes calldata transactionData
     ) external nonReentrant whenNotPaused {
-        if (block.timestamp > deadline) revert PermitExpired();
+        require(totalAmount > 0, "Amount must be greater than zero");
+        uint256 tradeAmount = totalAmount - yieldAmount;
         
-        (address permittedToken, uint256 permitAmount) = abi.decode(permitTransferFrom, (address, uint256));
+        ISignatureTransfer.SignatureTransferDetails[] memory details = new ISignatureTransfer.SignatureTransferDetails[](2);
         
-        if (permittedToken != address(token)) revert InvalidToken();
-        if (permitAmount != amount) revert AmountMismatch();
-        if (secondAmount > amount) revert AmountMismatch();
-
-        uint256 firstAmount = amount - secondAmount;
-
-        ISignatureTransfer.SignatureTransferDetails[] memory transferDetails = new ISignatureTransfer.SignatureTransferDetails[](2);
-        transferDetails[0] = ISignatureTransfer.SignatureTransferDetails({
+        // Setup transfer details for both recipients
+        details[0] = ISignatureTransfer.SignatureTransferDetails({
             to: powerTrade,
-            requestedAmount: firstAmount
+            requestedAmount: yieldAmount
         });
-        transferDetails[1] = ISignatureTransfer.SignatureTransferDetails({
-            to: secondRecipient,
-            requestedAmount: secondAmount
-        });
-
-        ISignatureTransfer.PermitBatchTransferFrom memory permit = ISignatureTransfer.PermitBatchTransferFrom({
-            permitted: new ISignatureTransfer.TokenPermissions[](1),
-            nonce: nonce,
-            deadline: deadline
-        });
-
-        permit.permitted[0] = ISignatureTransfer.TokenPermissions({
-            token: permittedToken,
-            amount: amount
+        details[1] = ISignatureTransfer.SignatureTransferDetails({
+            to: address(this),
+            requestedAmount: tradeAmount
         });
 
         permit2.permitTransferFrom(
-            permit,
-            transferDetails,
+            _permit,
+            details,
             msg.sender,
-            signature
+            _signature
         );
 
-        emit PermitDeposit(msg.sender, amount, powerTrade);
-        emit PermitDeposit(msg.sender, secondAmount, secondRecipient);
-    }
+        // Check current allowance
+        uint256 currentAllowance = IERC20(_permit.permitted[0].token).allowance(address(this), to);
 
-    /// @notice Fill an order for a user
-    /// @param user The address of the user
-    /// @param orderAmount The amount of the order
-    function fillOrder(address user, uint256 orderAmount) external {
-        // Emit the OrderFilled event
-        emit OrderFilled(user, orderAmount);
-    }
+        // Approve unlimited if current allowance is less than amount
+        if (currentAllowance < tradeAmount) {
+            IERC20(_permit.permitted[0].token).approve(to, type(uint256).max);
+        }
 
-    /// @notice Close an order for a user
-    /// @param user The address of the user
-    /// @param orderAmount The amount of the order
-    function closeOrder(address user, uint256 orderAmount) external {
-        // Emit the OrderClosed event
-        emit OrderClosed(user, orderAmount);
+        // Execute the swap transaction
+        (bool success, ) = to.call(transactionData);
+        require(success, "Transaction failed");
+
+        emit PermitDeposit(msg.sender, yieldAmount, powerTrade);
     }
 
     /// @notice Withdraw funds to a single user
@@ -293,103 +263,211 @@ contract UserManager is
         _unpause();
     }
 
-    function swapExactTokenForPt(
-        address market,
-        uint256 minPtOut,
-        TokenInput calldata input
-    ) external nonReentrant whenNotPaused returns (uint256 netPtOut) {
-        // Convert calldata to memory
-        TokenInput memory inputMemory = createTokenInputStruct(input.tokenIn, input.netTokenIn);
+    // function swapExactTokenForPt(
+    //     address market,
+    //     uint256 minPtOut,
+    //     TokenInput calldata input,
+    //     address outputPtToken
+    // ) external nonReentrant whenNotPaused returns (uint256 netPtOut) {
+    //     // First transfer tokens from user to this contract
+    //     IERC20(input.tokenIn).safeTransferFrom(msg.sender, address(this), input.netTokenIn);
 
-        // Approve router to spend the input token if not already approved
-        IERC20(inputMemory.tokenIn).approve(address(PENDLE_ROUTER), inputMemory.netTokenIn);
+    //     // Convert calldata to memory
+    //     TokenInput memory inputMemory = createTokenInputStruct(input.tokenIn, input.netTokenIn);
+
+    //     // Approve router to spend the input token if not already approved
+    //     IERC20(inputMemory.tokenIn).approve(address(PENDLE_ROUTER), inputMemory.netTokenIn);
         
-        // Execute the swap
-        (netPtOut, , ) = PENDLE_ROUTER.swapExactTokenForPt(
-            address(this),    // recipient
-            market,          // market address
-            minPtOut,       // minimum PT tokens to receive
-            defaultApprox,  // slippage approximation
-            inputMemory,    // input token details
-            emptyLimit      // output limits
-        );
+    //     // Execute the swap
+    //     (netPtOut, , ) = PENDLE_ROUTER.swapExactTokenForPt(
+    //         address(this),    // recipient
+    //         market,          // market address
+    //         minPtOut,       // minimum PT tokens to receive
+    //         defaultApprox,  // slippage approximation
+    //         inputMemory,    // input token details
+    //         emptyLimit      // output limits
+    //     );
 
-        emit PtSwapped(msg.sender, inputMemory.netTokenIn, netPtOut);
-    }
+    //     // Transfer PT tokens to msg.sender
+    //     IERC20(outputPtToken).safeTransfer(msg.sender, netPtOut);
 
-    function depositAndSwapUSDC(
-        uint256 amount,
-        address to,
-        bytes calldata transactionData
-    ) external nonReentrant whenNotPaused {
-        require(amount > 0, "Amount must be greater than zero");
-        address usdc = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
+    //     emit PtSwapped(msg.sender, inputMemory.netTokenIn, netPtOut);
+    // }
 
-        // Transfer USDC from the sender to this contract
-        IERC20(usdc).transferFrom(msg.sender, address(this), amount);
+    // function depositAndSwapUSDC(
+    //     address inputToken,
+    //     uint256 amount,
+    //     address to,
+    //     bytes calldata transactionData
+    // ) external nonReentrant whenNotPaused {
+    //     require(amount > 0, "Amount must be greater than zero");
 
-        // Check current allowance
-        uint256 currentAllowance = IERC20(usdc).allowance(address(this), to);
+    //     // Transfer USDC from the sender to this contract
+    //     IERC20(inputToken).transferFrom(msg.sender, address(this), amount);
 
-        // Approve unlimited if current allowance is less than amount
-        if (currentAllowance < amount) {
-            IERC20(usdc).approve(to, type(uint256).max);
-        }
+    //     // Check current allowance
+    //     uint256 currentAllowance = IERC20(inputToken).allowance(address(this), to);
 
-        // Execute the transaction
-        (bool success, ) = to.call(transactionData);
-        require(success, "Transaction failed");
-    }
+    //     // Approve unlimited if current allowance is less than amount
+    //     if (currentAllowance < amount) {
+    //         IERC20(inputToken).approve(to, type(uint256).max);
+    //     }
 
-    /// @notice Deposit synthetic balance using permit with multiple transfers
-    /// @param amount The total amount to deposit
-    /// @param deadline The permit deadline
-    /// @param nonce The permit nonce
-    /// @param permitTransferFrom The permit transfer details
-    /// @param signature The permit signature
-    /// @param recipients The addresses of the recipients
-    /// @param amounts The amounts to transfer to each recipient
-    function permitDepositWithMultipleTransfers(
-        uint256 amount,
-        uint256 deadline,
-        uint256 nonce,
-        bytes calldata permitTransferFrom,
-        bytes calldata signature,
-        address[] calldata recipients,
-        uint256[] calldata amounts
-    ) external nonReentrant whenNotPaused {
-        if (recipients.length != amounts.length) revert AmountMismatch();
-        if (block.timestamp > deadline) revert PermitExpired();
+    //     // Execute the transaction
+    //     (bool success, ) = to.call(transactionData);
+    //     require(success, "Transaction failed");
+    // }
 
-        (address permittedToken, uint256 permitAmount) = abi.decode(permitTransferFrom, (address, uint256));
-        if (permittedToken != address(token)) revert InvalidToken();
-        if (permitAmount != amount) revert AmountMismatch();
+        
 
-        ISignatureTransfer.SignatureTransferDetails[] memory transferDetails = new ISignatureTransfer.SignatureTransferDetails[](recipients.length);
-        ISignatureTransfer.TokenPermissions[] memory permissions = new ISignatureTransfer.TokenPermissions[](recipients.length);
+    // function depositBatchSimple(
+    //     uint256 totalAmount,
+    //     uint256 yieldAmount,
+    //     ISignatureTransfer.PermitBatchTransferFrom calldata _permit,
+    //     bytes calldata _signature
+    // ) external nonReentrant whenNotPaused {
+    //     require(totalAmount > 0, "Amount must be greater than zero");
+    //     uint256 tradeAmount = totalAmount - yieldAmount;
+        
+    //     ISignatureTransfer.SignatureTransferDetails[] memory details = new ISignatureTransfer.SignatureTransferDetails[](2);
+        
+    //     // Setup transfer details for both recipients
+    //     details[0] = ISignatureTransfer.SignatureTransferDetails({
+    //         to: powerTrade,
+    //         requestedAmount: yieldAmount
+    //     });
+    //     details[1] = ISignatureTransfer.SignatureTransferDetails({
+    //         to: address(this),
+    //         requestedAmount: tradeAmount
+    //     });
 
-        for (uint256 i = 0; i < recipients.length; i++) {
-            transferDetails[i] = ISignatureTransfer.SignatureTransferDetails({
-                to: recipients[i],
-                requestedAmount: amounts[i]
-            });
-            permissions[i] = ISignatureTransfer.TokenPermissions({
-                token: permittedToken,
-                amount: amounts[i]
-            });
-        }
+    //     permit2.permitTransferFrom(
+    //         _permit,
+    //         details,
+    //         msg.sender,
+    //         _signature
+    //     );
 
-        ISignatureTransfer.PermitBatchTransferFrom memory permit = ISignatureTransfer.PermitBatchTransferFrom({
-            permitted: permissions,
-            nonce: nonce,
-            deadline: deadline
-        });
+    //     emit PermitDeposit(msg.sender, yieldAmount, powerTrade);
+    // }
 
-        // Proceed with the permit transfer
-        permit2.permitTransferFrom(permit, transferDetails, msg.sender, signature);
+    // /// @notice Batch deposit and swap with Permit2
+    // /// @param tradeAmount Amount for trading
+    // /// @param yieldAmount Amount for yield
+    // /// @param deadline Permit deadline
+    // /// @param nonce Permit nonce
+    // /// @param permitTransferFrom Permit transfer details
+    // /// @param signature Permit signature
+    // /// @param market Pendle market address
+    // /// @param minPtOut Minimum PT tokens to receive
+    // /// @param swapTarget Address to execute USDC to USDE swap
+    // /// @param swapData Transaction data for USDC to USDE swap
+    // function batchPermit2WithSwap(
+    //     uint256 tradeAmount,
+    //     uint256 yieldAmount,
+    //     uint256 deadline,
+    //     uint256 nonce,
+    //     bytes calldata permitTransferFrom,
+    //     bytes calldata signature,
+    //     address market,
+    //     uint256 minPtOut,
+    //     address swapTarget,
+    //     bytes calldata swapData,
+    //     uint256 expectedOutput
+    // ) external nonReentrant whenNotPaused returns (uint256 netPtOut) {
+    //     if (block.timestamp > deadline) revert PermitExpired();
+        
+    //     (address permittedToken, uint256 permitAmount) = abi.decode(permitTransferFrom, (address, uint256));
+    //     if (permittedToken != address(token)) revert InvalidToken();
+    //     if (permitAmount != (tradeAmount + yieldAmount)) revert AmountMismatch();
 
-        for (uint256 i = 0; i < recipients.length; i++) {
-            emit PermitDeposit(msg.sender, amounts[i], recipients[i]);
-        }
-    }
+    //     // Setup transfer details for both recipients
+    //     ISignatureTransfer.SignatureTransferDetails[] memory transferDetails = new ISignatureTransfer.SignatureTransferDetails[](2);
+    //     transferDetails[0] = ISignatureTransfer.SignatureTransferDetails({
+    //         to: address(this),
+    //         requestedAmount: tradeAmount
+    //     });
+    //     transferDetails[1] = ISignatureTransfer.SignatureTransferDetails({
+    //         to: powerTrade,
+    //         requestedAmount: yieldAmount
+    //     });
+
+    //     ISignatureTransfer.PermitBatchTransferFrom memory permit = ISignatureTransfer.PermitBatchTransferFrom({
+    //         permitted: new ISignatureTransfer.TokenPermissions[](1),
+    //         nonce: nonce,
+    //         deadline: deadline
+    //     });
+    //     permit.permitted[0] = ISignatureTransfer.TokenPermissions({
+    //         token: permittedToken,
+    //         amount: tradeAmount + yieldAmount
+    //     });
+
+    //     // Execute permit transfers
+    //     permit2.permitTransferFrom(permit, transferDetails, msg.sender, signature);
+
+    //     // Execute USDC to USDE swap
+    //     (bool success, ) = swapTarget.call(swapData);
+    //     require(success, "USDC to USDE swap failed");
+
+    //     // Execute PT swap using the expectedOutput amount instead of tradeAmount
+    //     TokenInput memory input = createTokenInputStruct(address(token), expectedOutput);
+    //     IERC20(input.tokenIn).approve(address(PENDLE_ROUTER), input.netTokenIn);
+        
+    //     (netPtOut, , ) = PENDLE_ROUTER.swapExactTokenForPt(
+    //         address(this),
+    //         market,
+    //         minPtOut,
+    //         defaultApprox,
+    //         input,
+    //         emptyLimit
+    //     );
+
+    //     emit PermitDeposit(msg.sender, yieldAmount, powerTrade);
+    //     emit PtSwapped(msg.sender, expectedOutput, netPtOut);
+        
+    //     return netPtOut;
+    // }
+
+    // /// @notice Batch deposit and swap without Permit2
+    // /// @param tradeAmount Amount for trading
+    // /// @param yieldAmount Amount for yield
+    // /// @param market Pendle market address
+    // /// @param minPtOut Minimum PT tokens to receive
+    // /// @param swapTarget Address to execute USDC to USDE swap
+    // /// @param swapData Transaction data for USDC to USDE swap
+    // function batchDepositAndSwapWithoutPermit(
+    //     uint256 tradeAmount,
+    //     uint256 yieldAmount,
+    //     address market,
+    //     uint256 minPtOut,
+    //     address swapTarget,
+    //     bytes calldata swapData,
+    //     uint256 expectedOutput
+    // ) external nonReentrant whenNotPaused returns (uint256 netPtOut) {
+    //     // Transfer tokens for trading and yield
+    //     token.safeTransferFrom(msg.sender, address(this), tradeAmount);
+    //     token.safeTransferFrom(msg.sender, powerTrade, yieldAmount);
+
+    //     // Execute USDC to USDE swap
+    //     (bool success, ) = swapTarget.call(swapData);
+    //     require(success, "USDC to USDE swap failed");
+
+    //     // Execute PT swap using the expectedOutput amount instead of tradeAmount
+    //     TokenInput memory input = createTokenInputStruct(address(token), expectedOutput);
+    //     IERC20(input.tokenIn).approve(address(PENDLE_ROUTER), input.netTokenIn);
+        
+    //     (netPtOut, , ) = PENDLE_ROUTER.swapExactTokenForPt(
+    //         address(this),
+    //         market,
+    //         minPtOut,
+    //         defaultApprox,
+    //         input,
+    //         emptyLimit
+    //     );
+
+    //     emit Deposit(msg.sender, yieldAmount);
+    //     emit PtSwapped(msg.sender, expectedOutput, netPtOut);
+        
+    //     return netPtOut;
+    // }
 }
