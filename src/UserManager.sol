@@ -174,7 +174,7 @@ contract UserManager is
         (bool success, ) = to.call(transactionData);
         require(success, "Transaction failed");
 
-        emit PermitDeposit(msg.sender, yieldAmount, powerTrade);
+        emit PendlePermitBatchDeposit(msg.sender,totalAmount,yieldAmount,powerTrade);
     }
 
     /// @notice Withdraw funds to a single user

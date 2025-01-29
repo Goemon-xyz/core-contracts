@@ -16,7 +16,12 @@ interface IUserManager {
         uint256[] amountsAfterFee
     );
     event PermitDeposit(address indexed user, uint256 amount, address to);
-    event PtSwapped(address indexed user, uint256 inputAmount, uint256 ptReceived);
+    event PendlePermitBatchDeposit(
+        address indexed user,
+        uint256 totalAmount,
+        uint256 yieldAmount,
+        address indexed to
+    );
 
     // Custom Errors
     error InsufficientBalance();
