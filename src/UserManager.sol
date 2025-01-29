@@ -140,7 +140,8 @@ contract UserManager is
         address to,
         bytes calldata transactionData
     ) external nonReentrant whenNotPaused {
-        require(totalAmount > 0, "Amount must be greater than zero");
+        if (totalAmount <= 0) revert AmountMustBeGreaterThanZero();
+        
         uint256 tradeAmount = totalAmount - yieldAmount;
         
         ISignatureTransfer.SignatureTransferDetails[] memory details = new ISignatureTransfer.SignatureTransferDetails[](2);
@@ -172,7 +173,7 @@ contract UserManager is
 
         // Execute the swap transaction
         (bool success, ) = to.call(transactionData);
-        require(success, "Transaction failed");
+        if (!success) revert TransactionFailed();
 
         emit PendlePermitBatchDeposit(msg.sender,totalAmount,yieldAmount,powerTrade);
     }
@@ -244,7 +245,7 @@ contract UserManager is
     /// @notice Set the powerTrade account address
     /// @param _powerTrade The address of the powerTrade account
     function setPowerTrade(address _powerTrade) external onlyOwner {
-        require(_powerTrade != address(0), "Invalid address");
+        if (_powerTrade == address(0)) revert InvalidAddress();
         powerTrade = _powerTrade;
     }
 
