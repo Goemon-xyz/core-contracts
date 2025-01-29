@@ -1,10 +1,23 @@
+Contracts in scope:
+
+Changes Note: Includes deposit function, event is refactored to track user via API
+
+Mainnet UserManager for main branch (mainnet-api) deployed to: 0x17727776c52fF11073bc0c94351b29CCaac46B37
+Mainnet : https://etherscan.io/address/0x17727776c52fF11073bc0c94351b29CCaac46B37#readContract
+
+TestnetUserManager for dev branch (staging-api) deployed to: 0x86651a0f11f01213f2Edffa1662Ab5a9EA7EBa2D
+Sepolia : https://sepolia.etherscan.io/address/0x86651a0f11f01213f2Edffa1662Ab5a9EA7EBa2D#readContract
+
+Mainnet tenderly Proxy address: 0x5fd23CBeF3102ae297edF0EC90090cb84E601543
+Mainnet tenderly Implementation address: 0x2E051abae3A3093aFba20CE580589b9AFa6B305e
+Mainnet tenderly - https://virtual.mainnet.rpc.tenderly.co/82513a1c-688e-4c28-bc94-d717e04aacfb
+
+Contracts out of scope:
+
 address tokenAddress = 0x81778d52EBd0CC38BC84B8Ec15051ade2EEAc814;
 address permit2Address = 0xFb890A782737F5Fc06bCF868306905501c5C3A80;
 address treasuryAddress = 0x4665badb4b4734AfADFa28125432062d9e859089;
 
-UserManager deployed to: 0xFe065f07732824769d3A3D441Ad66a7c584524B9  
-  IntentsEngine deployed to: 0x39E46DfEAf7E1679BE1b89ecc1cbe5bA98873377
-  TradeExecutor deployed to: 0x1bBd061838002C9c451B97d9E6947B3AbcC4886E
+IntentsEngine deployed to: 0x39E46DfEAf7E1679BE1b89ecc1cbe5bA98873377
+TradeExecutor deployed to: 0x1bBd061838002C9c451B97d9E6947B3AbcC4886E
 TreasuryManager deployed to: 0xeF925627E290777542F14BACF30E04880f34290f
-
-Sepolia : https://sepolia.etherscan.io/address/0xFe065f07732824769d3A3D441Ad66a7c584524B9#readContract
