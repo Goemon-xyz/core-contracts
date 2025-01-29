@@ -5,14 +5,12 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "permit2/src/interfaces/IPermit2.sol";
 import "./interfaces/IUserManager.sol";
 import "permit2/src/interfaces/ISignatureTransfer.sol";
-import "@pendle/core-v2/contracts/interfaces/IPAllActionTypeV3.sol";
-import "@pendle/core-v2/contracts/interfaces/IPMarket.sol";
-import "./StructGen.sol";
 
 contract UserManager is
     IUserManager,
@@ -20,7 +18,7 @@ contract UserManager is
     OwnableUpgradeable,
     ReentrancyGuardUpgradeable,
     PausableUpgradeable,
-    StructGen
+    UUPSUpgradeable
 {
     using SafeERC20 for IERC20;
 
@@ -34,8 +32,17 @@ contract UserManager is
 
     mapping(address => bool) public whitelist; // Mapping to track whitelisted addresses
 
-    IPAllActionV3 public constant PENDLE_ROUTER = IPAllActionV3(0x888888888889758F76e7103c6CbF23ABbF58F946);
+    // Storage gap to prevent clashes
+    uint256[5] private __gap;
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+    
+    // Add UUPS authorization function
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
+    
     /// @notice Initialize the UserManager contract
     /// @param _token The address of the ERC20 token contract
     /// @param _powerTrade The address of the powerTrade account
@@ -262,212 +269,4 @@ contract UserManager is
     function unpause() external onlyOwner {
         _unpause();
     }
-
-    // function swapExactTokenForPt(
-    //     address market,
-    //     uint256 minPtOut,
-    //     TokenInput calldata input,
-    //     address outputPtToken
-    // ) external nonReentrant whenNotPaused returns (uint256 netPtOut) {
-    //     // First transfer tokens from user to this contract
-    //     IERC20(input.tokenIn).safeTransferFrom(msg.sender, address(this), input.netTokenIn);
-
-    //     // Convert calldata to memory
-    //     TokenInput memory inputMemory = createTokenInputStruct(input.tokenIn, input.netTokenIn);
-
-    //     // Approve router to spend the input token if not already approved
-    //     IERC20(inputMemory.tokenIn).approve(address(PENDLE_ROUTER), inputMemory.netTokenIn);
-        
-    //     // Execute the swap
-    //     (netPtOut, , ) = PENDLE_ROUTER.swapExactTokenForPt(
-    //         address(this),    // recipient
-    //         market,          // market address
-    //         minPtOut,       // minimum PT tokens to receive
-    //         defaultApprox,  // slippage approximation
-    //         inputMemory,    // input token details
-    //         emptyLimit      // output limits
-    //     );
-
-    //     // Transfer PT tokens to msg.sender
-    //     IERC20(outputPtToken).safeTransfer(msg.sender, netPtOut);
-
-    //     emit PtSwapped(msg.sender, inputMemory.netTokenIn, netPtOut);
-    // }
-
-    // function depositAndSwapUSDC(
-    //     address inputToken,
-    //     uint256 amount,
-    //     address to,
-    //     bytes calldata transactionData
-    // ) external nonReentrant whenNotPaused {
-    //     require(amount > 0, "Amount must be greater than zero");
-
-    //     // Transfer USDC from the sender to this contract
-    //     IERC20(inputToken).transferFrom(msg.sender, address(this), amount);
-
-    //     // Check current allowance
-    //     uint256 currentAllowance = IERC20(inputToken).allowance(address(this), to);
-
-    //     // Approve unlimited if current allowance is less than amount
-    //     if (currentAllowance < amount) {
-    //         IERC20(inputToken).approve(to, type(uint256).max);
-    //     }
-
-    //     // Execute the transaction
-    //     (bool success, ) = to.call(transactionData);
-    //     require(success, "Transaction failed");
-    // }
-
-        
-
-    // function depositBatchSimple(
-    //     uint256 totalAmount,
-    //     uint256 yieldAmount,
-    //     ISignatureTransfer.PermitBatchTransferFrom calldata _permit,
-    //     bytes calldata _signature
-    // ) external nonReentrant whenNotPaused {
-    //     require(totalAmount > 0, "Amount must be greater than zero");
-    //     uint256 tradeAmount = totalAmount - yieldAmount;
-        
-    //     ISignatureTransfer.SignatureTransferDetails[] memory details = new ISignatureTransfer.SignatureTransferDetails[](2);
-        
-    //     // Setup transfer details for both recipients
-    //     details[0] = ISignatureTransfer.SignatureTransferDetails({
-    //         to: powerTrade,
-    //         requestedAmount: yieldAmount
-    //     });
-    //     details[1] = ISignatureTransfer.SignatureTransferDetails({
-    //         to: address(this),
-    //         requestedAmount: tradeAmount
-    //     });
-
-    //     permit2.permitTransferFrom(
-    //         _permit,
-    //         details,
-    //         msg.sender,
-    //         _signature
-    //     );
-
-    //     emit PermitDeposit(msg.sender, yieldAmount, powerTrade);
-    // }
-
-    // /// @notice Batch deposit and swap with Permit2
-    // /// @param tradeAmount Amount for trading
-    // /// @param yieldAmount Amount for yield
-    // /// @param deadline Permit deadline
-    // /// @param nonce Permit nonce
-    // /// @param permitTransferFrom Permit transfer details
-    // /// @param signature Permit signature
-    // /// @param market Pendle market address
-    // /// @param minPtOut Minimum PT tokens to receive
-    // /// @param swapTarget Address to execute USDC to USDE swap
-    // /// @param swapData Transaction data for USDC to USDE swap
-    // function batchPermit2WithSwap(
-    //     uint256 tradeAmount,
-    //     uint256 yieldAmount,
-    //     uint256 deadline,
-    //     uint256 nonce,
-    //     bytes calldata permitTransferFrom,
-    //     bytes calldata signature,
-    //     address market,
-    //     uint256 minPtOut,
-    //     address swapTarget,
-    //     bytes calldata swapData,
-    //     uint256 expectedOutput
-    // ) external nonReentrant whenNotPaused returns (uint256 netPtOut) {
-    //     if (block.timestamp > deadline) revert PermitExpired();
-        
-    //     (address permittedToken, uint256 permitAmount) = abi.decode(permitTransferFrom, (address, uint256));
-    //     if (permittedToken != address(token)) revert InvalidToken();
-    //     if (permitAmount != (tradeAmount + yieldAmount)) revert AmountMismatch();
-
-    //     // Setup transfer details for both recipients
-    //     ISignatureTransfer.SignatureTransferDetails[] memory transferDetails = new ISignatureTransfer.SignatureTransferDetails[](2);
-    //     transferDetails[0] = ISignatureTransfer.SignatureTransferDetails({
-    //         to: address(this),
-    //         requestedAmount: tradeAmount
-    //     });
-    //     transferDetails[1] = ISignatureTransfer.SignatureTransferDetails({
-    //         to: powerTrade,
-    //         requestedAmount: yieldAmount
-    //     });
-
-    //     ISignatureTransfer.PermitBatchTransferFrom memory permit = ISignatureTransfer.PermitBatchTransferFrom({
-    //         permitted: new ISignatureTransfer.TokenPermissions[](1),
-    //         nonce: nonce,
-    //         deadline: deadline
-    //     });
-    //     permit.permitted[0] = ISignatureTransfer.TokenPermissions({
-    //         token: permittedToken,
-    //         amount: tradeAmount + yieldAmount
-    //     });
-
-    //     // Execute permit transfers
-    //     permit2.permitTransferFrom(permit, transferDetails, msg.sender, signature);
-
-    //     // Execute USDC to USDE swap
-    //     (bool success, ) = swapTarget.call(swapData);
-    //     require(success, "USDC to USDE swap failed");
-
-    //     // Execute PT swap using the expectedOutput amount instead of tradeAmount
-    //     TokenInput memory input = createTokenInputStruct(address(token), expectedOutput);
-    //     IERC20(input.tokenIn).approve(address(PENDLE_ROUTER), input.netTokenIn);
-        
-    //     (netPtOut, , ) = PENDLE_ROUTER.swapExactTokenForPt(
-    //         address(this),
-    //         market,
-    //         minPtOut,
-    //         defaultApprox,
-    //         input,
-    //         emptyLimit
-    //     );
-
-    //     emit PermitDeposit(msg.sender, yieldAmount, powerTrade);
-    //     emit PtSwapped(msg.sender, expectedOutput, netPtOut);
-        
-    //     return netPtOut;
-    // }
-
-    // /// @notice Batch deposit and swap without Permit2
-    // /// @param tradeAmount Amount for trading
-    // /// @param yieldAmount Amount for yield
-    // /// @param market Pendle market address
-    // /// @param minPtOut Minimum PT tokens to receive
-    // /// @param swapTarget Address to execute USDC to USDE swap
-    // /// @param swapData Transaction data for USDC to USDE swap
-    // function batchDepositAndSwapWithoutPermit(
-    //     uint256 tradeAmount,
-    //     uint256 yieldAmount,
-    //     address market,
-    //     uint256 minPtOut,
-    //     address swapTarget,
-    //     bytes calldata swapData,
-    //     uint256 expectedOutput
-    // ) external nonReentrant whenNotPaused returns (uint256 netPtOut) {
-    //     // Transfer tokens for trading and yield
-    //     token.safeTransferFrom(msg.sender, address(this), tradeAmount);
-    //     token.safeTransferFrom(msg.sender, powerTrade, yieldAmount);
-
-    //     // Execute USDC to USDE swap
-    //     (bool success, ) = swapTarget.call(swapData);
-    //     require(success, "USDC to USDE swap failed");
-
-    //     // Execute PT swap using the expectedOutput amount instead of tradeAmount
-    //     TokenInput memory input = createTokenInputStruct(address(token), expectedOutput);
-    //     IERC20(input.tokenIn).approve(address(PENDLE_ROUTER), input.netTokenIn);
-        
-    //     (netPtOut, , ) = PENDLE_ROUTER.swapExactTokenForPt(
-    //         address(this),
-    //         market,
-    //         minPtOut,
-    //         defaultApprox,
-    //         input,
-    //         emptyLimit
-    //     );
-
-    //     emit Deposit(msg.sender, yieldAmount);
-    //     emit PtSwapped(msg.sender, expectedOutput, netPtOut);
-        
-    //     return netPtOut;
-    // }
 }

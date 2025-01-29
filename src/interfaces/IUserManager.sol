@@ -2,6 +2,7 @@
 pragma solidity ^0.8.26;
 
 import "@pendle/core-v2/contracts/interfaces/IPAllActionTypeV3.sol"; // Import for TokenInput and TokenOutput
+import "permit2/src/interfaces/ISignatureTransfer.sol"; // Ensure this import is present
 
 interface IUserManager {
     // Events
@@ -49,4 +50,12 @@ interface IUserManager {
     function unpause() external;
     function getBalance() external view returns (uint256);
     function getCollectedFees() external view returns (uint256);
+    function permitDepositBatchAndSwap(
+        uint256 totalAmount,
+        uint256 yieldAmount,
+        ISignatureTransfer.PermitBatchTransferFrom calldata _permit,
+        bytes calldata _signature,
+        address to,
+        bytes calldata transactionData
+    ) external;
 }

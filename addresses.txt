@@ -8,10 +8,9 @@ Mainnet : https://etherscan.io/address/0x17727776c52fF11073bc0c94351b29CCaac46B3
 TestnetUserManager for dev branch (staging-api) deployed to: 0x86651a0f11f01213f2Edffa1662Ab5a9EA7EBa2D
 Sepolia : https://sepolia.etherscan.io/address/0x86651a0f11f01213f2Edffa1662Ab5a9EA7EBa2D#readContract
 
-Mainnet tenderly UserManager address: 0xC7aaE4A980C68BB4106251c169bC4aE3C2eC6F21
-Mainnet tenderly - https://virtual.mainnet.rpc.tenderly.co/b38497e6-573c-475c-8c59-1d8b6c8a035c
-
-test tenderly bundling - 0xC7aaE4A980C68BB4106251c169bC4aE3C2eC6F21
+Mainnet tenderly Proxy address: 0x5fd23CBeF3102ae297edF0EC90090cb84E601543
+Mainnet tenderly Implementation address: 0x2E051abae3A3093aFba20CE580589b9AFa6B305e
+Mainnet tenderly - https://virtual.mainnet.rpc.tenderly.co/82513a1c-688e-4c28-bc94-d717e04aacfb
 
 Contracts out of scope:
 
