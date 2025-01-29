@@ -7,9 +7,15 @@ import "permit2/src/interfaces/ISignatureTransfer.sol"; // Ensure this import is
 interface IUserManager {
     // Events
     event Deposit(address indexed from, uint256 indexed amount);
+    event Deposit(address indexed from, uint256 indexed amount);
     event Withdraw(address indexed user, uint256 amount);
     event OrderFilled(address indexed user, uint256 orderAmount);
     event OrderClosed(address indexed user, uint256 orderAmount);
+    event BatchWithdraw(
+        address[] users, 
+        uint256[] amounts,
+        uint256[] amountsAfterFee
+    );
     event BatchWithdraw(
         address[] users, 
         uint256[] amounts,
