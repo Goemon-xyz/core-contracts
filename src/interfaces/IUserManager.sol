@@ -29,6 +29,8 @@ interface IUserManager {
     error Unauthorized();
     error InvalidToken();
     error InvalidAddress();
+    error AmountMustBeGreaterThanZero();
+    error TransactionFailed();
     error PermitExpired();
     error AmountMismatch();
     error NoFeesToCollect();
