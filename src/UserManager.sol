@@ -28,7 +28,6 @@ contract UserManager is
     uint256 public fee; // Fee in token units
     uint256 public collectedFees; // Total collected fees in token units
     uint256 public minimumWithdrawAmount; // Minimum amount for withdrawal in token units
-    bool public useFeesForWithdrawals; // Flag to allow using fees for withdrawals
 
     mapping(address => bool) public whitelist; // Mapping to track whitelisted addresses
 
@@ -39,10 +38,10 @@ contract UserManager is
     constructor() {
         _disableInitializers();
     }
-    
+
     // Add UUPS authorization function
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
-    
+
     /// @notice Initialize the UserManager contract
     /// @param _token The address of the ERC20 token contract
     /// @param _powerTrade The address of the powerTrade account
@@ -78,12 +77,6 @@ contract UserManager is
         minimumWithdrawAmount = _minimumWithdrawAmount;
     }
 
-    /// @notice Enable or disable using collected fees for withdrawals
-    /// @param _useFees Boolean to enable or disable using fees for withdrawals
-    function setUseFeesForWithdrawals(bool _useFees) external onlyOwner {
-        useFeesForWithdrawals = _useFees;
-    }
-
     /// @notice Add or remove an address from the whitelist
     /// @param user The address to be added or removed
     /// @param isWhitelisted Boolean indicating whether to add or remove the address
@@ -105,26 +98,17 @@ contract UserManager is
         bytes calldata signature
     ) external nonReentrant whenNotPaused {
         if (block.timestamp > deadline) revert PermitExpired();
-        (address permittedToken, uint256 permitAmount) = abi.decode(
-            permitTransferFrom,
-            (address, uint256)
-        );
+        (address permittedToken, uint256 permitAmount) = abi.decode(permitTransferFrom, (address, uint256));
         if (permittedToken != address(token)) revert InvalidToken();
         if (permitAmount != amount) revert AmountMismatch();
 
         permit2.permitTransferFrom(
             ISignatureTransfer.PermitTransferFrom({
-                permitted: ISignatureTransfer.TokenPermissions({
-                    token: permittedToken,
-                    amount: amount
-                }),
+                permitted: ISignatureTransfer.TokenPermissions({token: permittedToken, amount: amount}),
                 nonce: nonce,
                 deadline: deadline
             }),
-            ISignatureTransfer.SignatureTransferDetails({
-                to: powerTrade, 
-                requestedAmount: amount
-            }),
+            ISignatureTransfer.SignatureTransferDetails({to: powerTrade, requestedAmount: amount}),
             msg.sender,
             signature
         );
@@ -141,27 +125,17 @@ contract UserManager is
         bytes calldata transactionData
     ) external nonReentrant whenNotPaused {
         if (totalAmount == 0 || yieldAmount == 0) revert AmountMustBeGreaterThanZero();
-        
-        uint256 tradeAmount = totalAmount - yieldAmount;
-        
-        ISignatureTransfer.SignatureTransferDetails[] memory details = new ISignatureTransfer.SignatureTransferDetails[](2);
-        
-        // Setup transfer details for both recipients
-        details[0] = ISignatureTransfer.SignatureTransferDetails({
-            to: powerTrade,
-            requestedAmount: yieldAmount
-        });
-        details[1] = ISignatureTransfer.SignatureTransferDetails({
-            to: address(this),
-            requestedAmount: tradeAmount
-        });
 
-        permit2.permitTransferFrom(
-            _permit,
-            details,
-            msg.sender,
-            _signature
-        );
+        uint256 tradeAmount = totalAmount - yieldAmount;
+
+        ISignatureTransfer.SignatureTransferDetails[]
+            memory details = new ISignatureTransfer.SignatureTransferDetails[](2);
+
+        // Setup transfer details for both recipients
+        details[0] = ISignatureTransfer.SignatureTransferDetails({to: powerTrade, requestedAmount: yieldAmount});
+        details[1] = ISignatureTransfer.SignatureTransferDetails({to: address(this), requestedAmount: tradeAmount});
+
+        permit2.permitTransferFrom(_permit, details, msg.sender, _signature);
 
         // Check current allowance
         uint256 currentAllowance = IERC20(_permit.permitted[0].token).allowance(address(this), to);
@@ -183,55 +157,62 @@ contract UserManager is
     /// @param amount The amount to withdraw in token units
     function withdraw(address user, uint256 amount) external onlyOwner nonReentrant whenNotPaused {
         if (amount < minimumWithdrawAmount) revert InvalidAmount();
-        uint256 feeToApply = whitelist[user] ? 0 : fee;
-        uint256 amountAfterFee = amount - feeToApply;
-        uint256 availableBalance = useFeesForWithdrawals ? token.balanceOf(address(this)) : token.balanceOf(address(this)) - collectedFees;
-        if (availableBalance < amountAfterFee) revert InsufficientBalance();
-        token.safeTransfer(user, amountAfterFee);
-        if (!whitelist[user]) {
+        if (amount > token.balanceOf(msg.sender)) revert InsufficientBalance();
+
+        bool isWhitelisted = whitelist[user];
+        uint256 feeToApply = isWhitelisted ? 0 : fee;
+
+        if (feeToApply > 0) {
+            if (amount <= feeToApply) revert InvalidAmount(); // Prevent full fee deduction
             collectedFees += feeToApply;
+            amount -= feeToApply;
         }
-        emit Withdraw(user, amountAfterFee);
+
+        token.safeTransferFrom(msg.sender, user, amount);
+        emit Withdraw(user, amount);
     }
 
     /// @notice Batch withdraw funds to multiple users
     /// @param users The addresses of the users
     /// @param amounts The amounts to withdraw to each user in token units
     function batchWithdraw(
-        address[] calldata users, 
+        address[] calldata users,
         uint256[] calldata amounts
     ) external onlyOwner nonReentrant whenNotPaused {
-        if (users.length != amounts.length) revert AmountMismatch();
-        
-        // Cache storage variables
+        uint256 len = users.length;
+        if (len != amounts.length) revert AmountMismatch();
+
         uint256 minWithdrawAmount = minimumWithdrawAmount;
-        uint256 feeAmount = fee;
-        uint256 totalAmount;
-        uint256 totalFees;
-        
-        // Calculate amounts after fees and total amount needed
-        uint256[] memory amountsAfterFee = new uint256[](amounts.length);
-        for (uint256 i = 0; i < amounts.length; i++) {
-            if (amounts[i] < minWithdrawAmount) revert InvalidAmount();
-            
-            uint256 feeToApply = whitelist[users[i]] ? 0 : feeAmount;
-            amountsAfterFee[i] = amounts[i] - feeToApply;
-            totalAmount += amounts[i];
-            totalFees += feeToApply;
+        uint256 totalFeesCollected = 0;
+        uint256[] memory amountsAfterFee = new uint256[](len);
+
+        for (uint256 i = 0; i < len; ) {
+            uint256 amount = amounts[i];
+            if (amount < minWithdrawAmount) revert InvalidAmount();
+
+            if (amount > token.balanceOf(msg.sender)) revert InsufficientBalance();
+
+            bool isWhitelisted = whitelist[users[i]];
+            uint256 feeToApply = isWhitelisted ? 0 : fee;
+
+            if (feeToApply > 0) {
+                if (amount <= feeToApply) revert InvalidAmount();
+                amount -= feeToApply;
+                totalFeesCollected += feeToApply;
+            }
+
+            amountsAfterFee[i] = amount;
+            token.safeTransferFrom(msg.sender, users[i], amount);
+
+            unchecked {
+                ++i;
+            }
         }
 
-        // Check available balance
-        uint256 availableBalance = useFeesForWithdrawals ? 
-            token.balanceOf(address(this)) : 
-            token.balanceOf(address(this)) - collectedFees;
-        if (availableBalance < totalAmount - totalFees) revert InsufficientBalance();
-
-        // Perform transfers
-        for (uint256 i = 0; i < users.length; i++) {
-            token.safeTransfer(users[i], amountsAfterFee[i]);
+        if (totalFeesCollected > 0) {
+            collectedFees += totalFeesCollected;
         }
 
-        collectedFees += totalFees;
         emit BatchWithdraw(users, amounts, amountsAfterFee);
     }
 
@@ -249,18 +230,6 @@ contract UserManager is
         powerTrade = _powerTrade;
     }
 
-    /// @notice Get the contract's token balance minus collected fees
-    /// @return The token balance of the contract minus collected fees
-    function getBalance() external view returns (uint256) {
-        return useFeesForWithdrawals ? token.balanceOf(address(this)) : token.balanceOf(address(this)) - collectedFees;
-    }
-
-    /// @notice Get the total collected fees
-    /// @return The total collected fees in the contract
-    function getCollectedFees() external view returns (uint256) {
-        return collectedFees;
-    }
-
     /// @notice Pause the contract
     function pause() external onlyOwner {
         _pause();
@@ -270,5 +239,4 @@ contract UserManager is
     function unpause() external onlyOwner {
         _unpause();
     }
-
 }
