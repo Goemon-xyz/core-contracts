@@ -32,3 +32,4 @@ wrap_comments = true
 [rpc_endpoints]
 arbitrum = "https://rpc.ankr.com/arbitrum"
 mainnet = "https://rpc.ankr.com/eth"
+sepolia = "https://1rpc.io/sepolia"
