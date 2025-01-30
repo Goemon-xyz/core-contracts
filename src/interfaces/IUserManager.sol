@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import "@pendle/core-v2/contracts/interfaces/IPAllActionTypeV3.sol"; // Import for TokenInput and TokenOutput
 import "permit2/src/interfaces/ISignatureTransfer.sol"; // Ensure this import is present
 
 interface IUserManager {
