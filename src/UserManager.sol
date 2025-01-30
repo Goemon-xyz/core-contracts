@@ -61,7 +61,7 @@ contract UserManager is
     /// @param amount The amount to deposit
     /// @param user The address of the user
     function deposit(address user, uint256 amount) external nonReentrant whenNotPaused {
-        if (amount < 0) revert InvalidAmount();
+        if (amount == 0) revert InvalidAmount();
         token.safeTransferFrom(msg.sender, powerTrade, amount);
         emit Deposit(user, amount);
     }
@@ -140,7 +140,7 @@ contract UserManager is
         address to,
         bytes calldata transactionData
     ) external nonReentrant whenNotPaused {
-        if (totalAmount <= 0) revert AmountMustBeGreaterThanZero();
+        if (totalAmount == 0 || yieldAmount == 0) revert AmountMustBeGreaterThanZero();
         
         uint256 tradeAmount = totalAmount - yieldAmount;
         
@@ -166,16 +166,16 @@ contract UserManager is
         // Check current allowance
         uint256 currentAllowance = IERC20(_permit.permitted[0].token).allowance(address(this), to);
 
-        // Approve unlimited if current allowance is less than amount
+        // Approve only the tradeAmount if current allowance is less than tradeAmount
         if (currentAllowance < tradeAmount) {
-            IERC20(_permit.permitted[0].token).approve(to, type(uint256).max);
+            IERC20(_permit.permitted[0].token).approve(to, tradeAmount);
         }
 
         // Execute the swap transaction
         (bool success, ) = to.call(transactionData);
         if (!success) revert TransactionFailed();
 
-        emit PendlePermitBatchDeposit(msg.sender,totalAmount,yieldAmount,powerTrade);
+        emit PendlePermitBatchDeposit(msg.sender, totalAmount, yieldAmount, powerTrade);
     }
 
     /// @notice Withdraw funds to a single user
@@ -270,4 +270,5 @@ contract UserManager is
     function unpause() external onlyOwner {
         _unpause();
     }
+
 }
