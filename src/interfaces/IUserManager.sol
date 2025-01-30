@@ -50,12 +50,9 @@ interface IUserManager {
     function setPowerTrade(address _powerTrade) external;
     function setFee(uint256 _fee) external;
     function setMinimumWithdrawAmount(uint256 _minimumWithdrawAmount) external;
-    function setUseFeesForWithdrawals(bool _useFees) external;
     function setWhitelist(address user, bool isWhitelisted) external;
     function pause() external;
     function unpause() external;
-    function getBalance() external view returns (uint256);
-    function getCollectedFees() external view returns (uint256);
     function permitDepositBatchAndSwap(
         uint256 totalAmount,
         uint256 yieldAmount,
