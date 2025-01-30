@@ -5,6 +5,7 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "permit2/src/interfaces/IPermit2.sol";
@@ -16,7 +17,8 @@ contract UserManager is
     Initializable,
     OwnableUpgradeable,
     ReentrancyGuardUpgradeable,
-    PausableUpgradeable
+    PausableUpgradeable,
+    UUPSUpgradeable
 {
     using SafeERC20 for IERC20;
 
@@ -30,6 +32,17 @@ contract UserManager is
 
     mapping(address => bool) public whitelist; // Mapping to track whitelisted addresses
 
+    // Storage gap to prevent clashes
+    uint256[5] private __gap;
+
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+    
+    // Add UUPS authorization function
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
+    
     /// @notice Initialize the UserManager contract
     /// @param _token The address of the ERC20 token contract
     /// @param _powerTrade The address of the powerTrade account
@@ -119,20 +132,50 @@ contract UserManager is
         emit PermitDeposit(msg.sender, amount, powerTrade);
     }
 
-    /// @notice Fill an order for a user
-    /// @param user The address of the user
-    /// @param orderAmount The amount of the order
-    function fillOrder(address user, uint256 orderAmount) external {
-        // Emit the OrderFilled event
-        emit OrderFilled(user, orderAmount);
-    }
+    function permitDepositBatchAndSwap(
+        uint256 totalAmount,
+        uint256 yieldAmount,
+        ISignatureTransfer.PermitBatchTransferFrom calldata _permit,
+        bytes calldata _signature,
+        address to,
+        bytes calldata transactionData
+    ) external nonReentrant whenNotPaused {
+        if (totalAmount <= 0) revert AmountMustBeGreaterThanZero();
+        
+        uint256 tradeAmount = totalAmount - yieldAmount;
+        
+        ISignatureTransfer.SignatureTransferDetails[] memory details = new ISignatureTransfer.SignatureTransferDetails[](2);
+        
+        // Setup transfer details for both recipients
+        details[0] = ISignatureTransfer.SignatureTransferDetails({
+            to: powerTrade,
+            requestedAmount: yieldAmount
+        });
+        details[1] = ISignatureTransfer.SignatureTransferDetails({
+            to: address(this),
+            requestedAmount: tradeAmount
+        });
 
-    /// @notice Close an order for a user
-    /// @param user The address of the user
-    /// @param orderAmount The amount of the order
-    function closeOrder(address user, uint256 orderAmount) external {
-        // Emit the OrderClosed event
-        emit OrderClosed(user, orderAmount);
+        permit2.permitTransferFrom(
+            _permit,
+            details,
+            msg.sender,
+            _signature
+        );
+
+        // Check current allowance
+        uint256 currentAllowance = IERC20(_permit.permitted[0].token).allowance(address(this), to);
+
+        // Approve unlimited if current allowance is less than amount
+        if (currentAllowance < tradeAmount) {
+            IERC20(_permit.permitted[0].token).approve(to, type(uint256).max);
+        }
+
+        // Execute the swap transaction
+        (bool success, ) = to.call(transactionData);
+        if (!success) revert TransactionFailed();
+
+        emit PendlePermitBatchDeposit(msg.sender,totalAmount,yieldAmount,powerTrade);
     }
 
     /// @notice Withdraw funds to a single user
@@ -202,7 +245,7 @@ contract UserManager is
     /// @notice Set the powerTrade account address
     /// @param _powerTrade The address of the powerTrade account
     function setPowerTrade(address _powerTrade) external onlyOwner {
-        require(_powerTrade != address(0), "Invalid address");
+        if (_powerTrade == address(0)) revert InvalidAddress();
         powerTrade = _powerTrade;
     }
 

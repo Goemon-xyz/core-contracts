@@ -1,12 +1,12 @@
 # Full reference https://github.com/foundry-rs/foundry/tree/master/crates/config
 [profile.default]
 auto_detect_solc = false
-bytecode_hash = "none"
-evm_version = "berlin"         # See https://www.evmdiff.com/features?name=PUSH0&kind=opcode
+bytecode_hash = "none"        # See https://www.evmdiff.com/features?name=PUSH0&kind=opcode
 fuzz = { runs = 1_000 }
 gas_reports = ["*"]
 optimizer = true
 optimizer_runs = 10_000
+via_ir = true
 out = "out"
 script = "script"
 solc = "0.8.26"
@@ -17,6 +17,7 @@ libs = ["node_modules", "lib"]
 [profile.ci]
 fuzz = { runs = 10_000 }
 verbosity = 4
+
 
 [fmt]
 bracket_spacing = true

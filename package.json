@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@pendle/core-v2": "^5.5.0"
+  }
+}
