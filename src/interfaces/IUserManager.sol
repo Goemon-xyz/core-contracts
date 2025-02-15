@@ -21,6 +21,7 @@ interface IUserManager {
         uint256 yieldAmount,
         address indexed to
     );
+    event PermitCalldataExecution(address indexed user, uint256 indexed amount, address to);
 
     // Custom Errors
     error InsufficientBalance();
