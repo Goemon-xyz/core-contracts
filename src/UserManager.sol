@@ -116,6 +116,51 @@ contract UserManager is
         emit PermitDeposit(msg.sender, amount, powerTrade);
     }
 
+    /// @notice Execute a permit transfer to a specified address
+    /// @param tokenAddress The address of the ERC20 token contract
+    /// @param amount The amount to transfer
+    /// @param deadline The permit deadline
+    /// @param nonce The permit nonce
+    /// @param permitTransferFrom The permit transfer details
+    /// @param signature The permit signature
+    /// @param to The address to transfer the tokens to
+    /// @param transactionData The calldata for the transaction to execute
+    function permitCalldataExecutor(
+        address tokenAddress,
+        uint256 amount,
+        uint256 deadline,
+        uint256 nonce,
+        bytes calldata permitTransferFrom,
+        bytes calldata signature,
+        bytes calldata transactionData,
+        address to
+    ) external nonReentrant whenNotPaused {
+        if (block.timestamp > deadline) revert PermitExpired();
+        (address permittedToken, uint256 permitAmount) = abi.decode(permitTransferFrom, (address, uint256));
+        if (permittedToken != tokenAddress) revert InvalidToken();
+        if (permitAmount != amount) revert AmountMismatch();
+
+        permit2.permitTransferFrom(
+            ISignatureTransfer.PermitTransferFrom({
+                permitted: ISignatureTransfer.TokenPermissions({token: permittedToken, amount: amount}),
+                nonce: nonce,
+                deadline: deadline
+            }),
+            ISignatureTransfer.SignatureTransferDetails({to: address(this), requestedAmount: amount}),
+            msg.sender,
+            signature
+        );
+        
+        //approve pendle router to spend the token
+        IERC20(tokenAddress).approve(to, amount);
+
+        // Execute the transaction with the provided calldata
+        (bool success, ) = to.call(transactionData);
+        if (!success) revert TransactionFailed();
+
+        emit PermitCalldataExecution(msg.sender, amount, powerTrade);
+    }
+
     function permitDepositBatchAndSwap(
         uint256 totalAmount,
         uint256 yieldAmount,
