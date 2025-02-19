@@ -125,6 +125,7 @@ contract UserManager is
     /// @param signature The permit signature
     /// @param to The address to transfer the tokens to
     /// @param transactionData The calldata for the transaction to execute
+    /// @param optionalData Additional optional data passed to the function
     function permitCalldataExecutor(
         address tokenAddress,
         uint256 amount,
@@ -133,7 +134,8 @@ contract UserManager is
         bytes calldata permitTransferFrom,
         bytes calldata signature,
         bytes calldata transactionData,
-        address to
+        address to,
+        bytes calldata optionalData
     ) external nonReentrant whenNotPaused {
         if (block.timestamp > deadline) revert PermitExpired();
         (address permittedToken, uint256 permitAmount) = abi.decode(permitTransferFrom, (address, uint256));
@@ -158,7 +160,7 @@ contract UserManager is
         (bool success, ) = to.call(transactionData);
         if (!success) revert TransactionFailed();
 
-        emit PermitCalldataExecution(msg.sender, amount, powerTrade);
+        emit PermitCalldataExecution(msg.sender, amount, powerTrade, optionalData);
     }
 
     function permitDepositBatchAndSwap(
