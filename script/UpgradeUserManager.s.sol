@@ -8,8 +8,9 @@ import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/U
 
 contract UpgradeUserManager is Script {
     // Replace with your existing proxy address
-    address public constant EXISTING_PROXY_ADDRESS = 0x738356532cdd507a279040319Df43f3Ee78AfA2A;
-
+    address public constant EXISTING_PROXY_ADDRESS = 0x01D75243e0f7d3145E985acC1D4007968A45B08e;
+    // New implementation contract address = 0xbCCc65cB4e2827a514CA6f4993FF0765345b3e4D
+    
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
