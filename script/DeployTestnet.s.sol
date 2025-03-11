@@ -7,7 +7,7 @@ import "../src/UserManager.sol";
 
 contract DeployUserManager is Script {
     
-    address public constant USDC_ADDRESS = 0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238; // Sepolia USDC
+    address public constant USDC_ADDRESS = 0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d; // Arbitrum Sepolia USDC
     address public constant POWER_TRADE_ADDRESS = 0x3f9a360F544E8e13e1789A69511d439426f5f0af;
     address public constant PERMIT2_ADDRESS = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
     // uint256 public constant INITIAL_FEE = 1e3;
