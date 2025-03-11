@@ -1,10 +1,22 @@
 Contracts in scope:
 
-Mainnet Proxy address: https://etherscan.io/address/0x01D75243e0f7d3145E985acC1D4007968A45B08e
-Mainnet Implementation address: https://etherscan.io/address/0xbCCc65cB4e2827a514CA6f4993FF0765345b3e4D
+MAINNET
 
-Testnet Proxy address: https://sepolia.etherscan.io/address/0x46a3a1c66dcaefe42045d3d16d391689b9f68812
-Testnet Implementation address: https://sepolia.etherscan.io/address/0xc29672e1334f496e3a12c4184eb8adf0c28ea3b6
+Ethereum Proxy address: https://etherscan.io/address/0x01D75243e0f7d3145E985acC1D4007968A45B08e
+Ethereum Implementation address: https://etherscan.io/address/0xbCCc65cB4e2827a514CA6f4993FF0765345b3e4D
+
+Arbitrum Proxy address: https://arbiscan.io/address/0xb7a73b686578a2994b65a57023784be1304cead1#writeProxyContract
+Arbitrum Implementation address: https://arbiscan.io/address/0xa680ff3c06f5b19435de687f1fcd48bd1e7e3b2c#code
+
+TESTNET
+
+Sepolia Proxy address: https://sepolia.etherscan.io/address/0x46a3a1c66dcaefe42045d3d16d391689b9f68812
+Sepolia Implementation address: https://sepolia.etherscan.io/address/0xc29672e1334f496e3a12c4184eb8adf0c28ea3b6
+
+Arbitrum Proxy address: https://sepolia.arbiscan.io/address/0x93247c6c8af6bd15b2d829ee6e86599a91f74ef7
+Arbitrum Implementation address: https://sepolia.arbiscan.io/address/0xD5F73A026F33fF64aFA39e8E2d07d419c6d3a5A7
+
+SIMULATION
 
 Mainnet tenderly Proxy address: 0xc8bF78bb0e4102063Fc7A18026f6Aa435c457dE1
 Mainnet tenderly Implementation address: 0x1d7653b5Be5D1bb4725B021D0ae790736034B318
