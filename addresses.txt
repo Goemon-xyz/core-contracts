@@ -11,10 +11,13 @@ Arbitrum Implementation address: https://arbiscan.io/address/0xa680ff3c06f5b1943
 TESTNET
 
 Sepolia Proxy address: https://sepolia.etherscan.io/address/0x46a3a1c66dcaefe42045d3d16d391689b9f68812
-Sepolia Implementation address: https://sepolia.etherscan.io/address/0xc29672e1334f496e3a12c4184eb8adf0c28ea3b6
+Sepolia Implementation address: https://sepolia.etherscan.io/address/0x1291C2603Df58BcD71E84B4D5AfE878e4ACeb937
 
 Arbitrum Proxy address: https://sepolia.arbiscan.io/address/0x93247c6c8af6bd15b2d829ee6e86599a91f74ef7
 Arbitrum Implementation address: https://sepolia.arbiscan.io/address/0xD5F73A026F33fF64aFA39e8E2d07d419c6d3a5A7
+
+Base sepolia Implementation deployed to: https://sepolia.basescan.org/address/0xaD12B5715b826226c7e0B86f0615825732382cBb
+Base Sepolia Proxy deployed to: https://sepolia.basescan.org/address/0x9cA62a3326f74192b5974fC43f5ca472BA90460E
 
 SIMULATION
 
