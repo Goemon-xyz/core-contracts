@@ -263,6 +263,15 @@ contract UserManager is
         emit BatchWithdraw(users, amounts, amountsAfterFee);
     }
 
+    /// @notice Emit the intents batch IPFS CID(upgraded)
+    /// @param startTime The start time of the intents batch
+    /// @param endTime The end time of the intents batch
+    /// @param cid The CID of the intents batch
+    function intentBatchEmit(uint256 startTime, uint256 endTime, string memory cid) external {
+        require(bytes(cid).length > 0, "Invalid CID");
+        emit IntentsBatchIPFS(startTime, endTime, cid);
+    }
+
     /// @notice Collect accumulated fees
     function collectFees() external onlyOwner {
         uint256 feesToCollect = collectedFees;

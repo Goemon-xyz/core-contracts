@@ -22,6 +22,7 @@ interface IUserManager {
         address indexed to
     );
     event PermitCalldataExecution(address indexed user, uint256 amount, address indexed powerTrade, bytes optionalData);
+    event IntentsBatchIPFS(uint256 indexed startTime, uint256 indexed endTime, string cid);
     
     // Custom Errors
     error InsufficientBalance();
