@@ -8,6 +8,9 @@ Ethereum Implementation address: https://etherscan.io/address/0xbCCc65cB4e2827a5
 Arbitrum Proxy address: https://arbiscan.io/address/0xb7a73b686578a2994b65a57023784be1304cead1#writeProxyContract
 Arbitrum Implementation address: https://arbiscan.io/address/0xa680ff3c06f5b19435de687f1fcd48bd1e7e3b2c#code
 
+Base Proxy address: https://basescan.org/address/0xa1ea1c86d5f0297ae24d87dfb4914c4bc82c8122
+Base Implementation address: https://basescan.org/address/0x17727776c52ff11073bc0c94351b29ccaac46b37
+
 TESTNET
 
 Sepolia Proxy address: https://sepolia.etherscan.io/address/0x46a3a1c66dcaefe42045d3d16d391689b9f68812
